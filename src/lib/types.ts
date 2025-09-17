@@ -1,9 +1,11 @@
 export interface User {
-  phone: string;
-  role: 'resident' | 'admin' | 'technician';
+  id: string;
   name: string;
+  role: 'resident' | 'admin' | 'technician';
+  username: string;
+  password?: string; // Should be handled securely on a backend
   apartment?: string;
-  id?: string;
+  buildingName?: string;
 }
 
 export interface Notification {

@@ -11,16 +11,11 @@ export default function LoginPage() {
             <Building2 className="w-8 h-8" />
           </div>
           <CardTitle className="text-3xl font-bold font-headline">Tạo tài khoản Quản lý</CardTitle>
-          <CardDescription>Bắt đầu quản lý tòa nhà của bạn</CardDescription>
+          <CardDescription>Bắt đầu quản lý tòa nhà của bạn bằng việc tạo tài khoản.</CardDescription>
         </CardHeader>
         <CardContent>
           <RegisterForm />
         </CardContent>
-        <CardFooter>
-            <div className="w-full text-center text-sm text-muted-foreground p-4 bg-secondary rounded-lg">
-                <p className="mt-2 font-medium">Mã OTP mặc định để đăng ký: 123456</p>
-            </div>
-        </CardFooter>
       </Card>
     </div>
   );

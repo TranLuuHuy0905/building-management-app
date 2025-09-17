@@ -9,73 +9,70 @@ import { Loader2 } from 'lucide-react';
 
 export function RegisterForm() {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [buildingName, setBuildingName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const { registerAdmin } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePrimaryAction = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showOtpInput) {
-        if(name && phone) {
-            setShowOtpInput(true);
-        }
-    } else {
-      setIsSubmitting(true);
-      registerAdmin(name, phone, otp);
-      // No need to set isSubmitting to false, as the page will navigate away on success
-    }
+    setIsSubmitting(true);
+    await registerAdmin(name, buildingName, username, password);
+    // On failure, isSubmitting should be set to false in the auth context
+    // On success, the page will navigate away.
   };
 
   return (
-    <form onSubmit={handlePrimaryAction} className="space-y-6">
-      {!showOtpInput ? (
-        <>
-            <div className="space-y-2">
-                <Label htmlFor="name">Tên của bạn</Label>
-                <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nhập họ và tên"
-                required
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="phone">Số điện thoại</Label>
-                <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Nhập số điện thoại"
-                required
-                />
-            </div>
-        </>
-      ) : (
-        <div className="space-y-2">
-          <p className="text-sm text-center text-muted-foreground">
-            Chúng tôi đã gửi một mã OTP đến số điện thoại {phone}.
-          </p>
-          <Label htmlFor="otp">Mã OTP (nhập 123456)</Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+          <Label htmlFor="name">Tên của bạn</Label>
           <Input
-            id="otp"
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="Nhập mã OTP"
-            required
-            autoFocus
+          id="name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nhập họ và tên"
+          required
           />
-        </div>
-      )}
+      </div>
+      <div className="space-y-2">
+          <Label htmlFor="buildingName">Tên tòa nhà</Label>
+          <Input
+          id="buildingName"
+          type="text"
+          value={buildingName}
+          onChange={(e) => setBuildingName(e.target.value)}
+          placeholder="Ví dụ: Chung cư ABC"
+          required
+          />
+      </div>
+      <div className="space-y-2">
+          <Label htmlFor="username">Tên đăng nhập</Label>
+          <Input
+          id="username"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Nhập tên đăng nhập"
+          required
+          />
+      </div>
+      <div className="space-y-2">
+          <Label htmlFor="password">Mật khẩu</Label>
+          <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Nhập mật khẩu"
+          required
+          />
+      </div>
 
       <Button type="submit" className="w-full font-semibold" disabled={isSubmitting}>
         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {showOtpInput ? 'Xác nhận & Đăng ký' : 'Tiếp tục'}
+        Đăng ký
       </Button>
     </form>
   );

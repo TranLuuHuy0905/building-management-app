@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, type User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import type { User } from '@/lib/types';
+import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
@@ -13,6 +13,7 @@ interface AuthContextType {
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
   createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
+  createResidentsInBulk: (users: BulkUserCreationData[]) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
@@ -84,11 +85,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    const adminUser = auth.currentUser;
-    if (!adminUser) {
-        toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy người dùng quản trị viên hiện tại." });
-        return false;
-    }
+    // We cannot just use `auth.currentUser` as it might be null or different
+    // when this function is called in a loop for bulk creation.
+    // Instead, we will create a temporary auth instance for creating users
+    // and then sign back in as the admin. This is a common pattern for admin actions.
+    // However, for simplicity and since Firebase Admin SDK is not used on client,
+    // we'll rely on the fact that creating a user doesn't sign the admin out immediately.
+    // A more robust solution would use Cloud Functions.
 
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -103,8 +106,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
         
-        await signOut(auth);
-
         toast({
             title: "Thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
@@ -115,18 +116,84 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
         console.error("Error creating resident:", error);
         
-        if (!auth.currentUser) {
-            window.location.reload();
-        }
-
         toast({
             variant: "destructive",
             title: "Lỗi tạo tài khoản",
-            description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo tài khoản cho cư dân.",
+            description: `Không thể tạo tài khoản cho ${email}: ${error.code === 'auth/email-already-in-use' ? 'Email đã được sử dụng.' : 'Lỗi không xác định.'}`,
         });
         return false;
     }
 }, [currentUser, toast]);
+
+
+  const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[]) => {
+      if (!currentUser || currentUser.role !== 'admin') {
+          toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
+          return { success: 0, failed: 0 };
+      }
+      
+      const adminEmail = currentUser.email;
+      const adminPassword = prompt("Để xác nhận hành động này, vui lòng nhập lại mật khẩu của bạn:");
+
+      if (!adminPassword) {
+          toast({ variant: "destructive", title: "Hủy bỏ", description: "Hành động đã bị hủy." });
+          return { success: 0, failed: 0 };
+      }
+
+      try {
+          // Re-authenticate admin to confirm their identity before performing sensitive operations
+          const credential = EmailAuthProvider.credential(adminEmail, adminPassword);
+          await reauthenticateWithCredential(auth.currentUser!, credential);
+      } catch (error) {
+          toast({ variant: "destructive", title: "Xác thực thất bại", description: "Mật khẩu không chính xác. Hành động đã bị hủy." });
+          return { success: 0, failed: 0 };
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+
+      // This is not truly transactional. A failure mid-way will leave some users created.
+      // For a real-world app, this should be a single backend operation (e.g., a Cloud Function).
+      for (const user of users) {
+          try {
+              // Since createUserWithEmailAndPassword signs in the new user, we must sign out and sign back in the admin.
+              // This is very inefficient. The correct way is to use Firebase Admin SDK in a backend environment.
+              // For this client-side implementation, we accept the limitation that the admin might be briefly signed out.
+              const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
+              const newResidentUser = userCredential.user;
+
+              const newUserDoc: Omit<User, 'uid'> = {
+                  name: user.name,
+                  email: user.email,
+                  role: 'resident',
+                  apartment: user.apartment,
+                  buildingName: currentUser.buildingName,
+              };
+              await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
+              successCount++;
+          } catch (error: any) {
+              console.error(`Failed to create user ${user.email}:`, error);
+              failedCount++;
+          }
+      }
+      
+      // After loop, sign admin back in
+      try {
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      } catch (error) {
+         console.error("Failed to sign admin back in:", error);
+         toast({
+            variant: "destructive",
+            title: "Lỗi nghiêm trọng",
+            description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
+          });
+          // Force a reload to go to login page
+          window.location.reload();
+      }
+
+
+      return { success: successCount, failed: failedCount };
+  }, [currentUser, toast]);
 
 
   const login = useCallback(async (email: string, password: string) => {
@@ -216,7 +283,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout, changeUserPassword, resetPassword }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -43,3 +43,10 @@ export interface Bill {
   dueDate: string;
   paidDate?: string;
 }
+
+export interface BulkUserCreationData {
+  name: string;
+  apartment: string;
+  email: string;
+  password: string;
+}

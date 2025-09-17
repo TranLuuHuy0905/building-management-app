@@ -2,17 +2,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2, User as UserIcon } from 'lucide-react';
+import { Plus, Loader2, User as UserIcon, Upload } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { getUsers } from '@/lib/services/user-service';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { AddUserDialog } from './add-user-dialog';
+import { BulkAddUserDialog } from './bulk-add-user-dialog';
 
 export function UserList() {
   const { currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
 
   const fetchUsers = async () => {
       if (!currentUser || !currentUser.buildingName) return;
@@ -35,15 +37,24 @@ export function UserList() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800 font-headline">Quản lý Thành viên</h2>
         {currentUser?.role === 'admin' && (
-          <>
-            <Button size="icon" onClick={() => setIsDialogOpen(true)}>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsBulkAddDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Tạo hàng loạt
+            </Button>
+            <Button size="icon" onClick={() => setIsAddUserDialogOpen(true)}>
               <Plus className="w-5 h-5" />
               <span className="sr-only">Thêm thành viên</span>
             </Button>
             <AddUserDialog 
-              isOpen={isDialogOpen} 
-              onOpenChange={setIsDialogOpen}
+              isOpen={isAddUserDialogOpen} 
+              onOpenChange={setIsAddUserDialogOpen}
               onUserAdded={handleUserAdded}
+            />
+            <BulkAddUserDialog
+              isOpen={isBulkAddDialogOpen}
+              onOpenChange={setIsBulkAddDialogOpen}
+              onUsersAdded={handleUserAdded}
             />
           </>
         )}

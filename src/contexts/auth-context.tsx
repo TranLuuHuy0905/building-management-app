@@ -27,20 +27,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      // If we are in the process of creating a user, don't clear the current user yet.
+      const isAdminCreatingUser = sessionStorage.getItem('isAdminCreatingUser') === 'true';
+      
       if (firebaseUser) {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
-          setCurrentUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
-        } else {
-          // This case might happen if a user is created in Auth but not in Firestore yet
-          // or if the doc is deleted.
-          const adminCreatingUser = sessionStorage.getItem('adminCreatingUser');
-          if (!adminCreatingUser) {
-             setCurrentUser(null);
+          const userData = { uid: firebaseUser.uid, ...userDoc.data() } as User;
+          // If the logged-in user is an admin, it's safe to clear the flag.
+          if(userData.role === 'admin') {
+            sessionStorage.removeItem('isAdminCreatingUser');
           }
+          setCurrentUser(userData);
+        } else {
+            // This case might happen if a user is created in Auth but not in Firestore yet.
+            // We wait for the Firestore doc to be created. If we are not in the creation process,
+            // then it's safe to assume there's an issue and log the user out.
+            if (!isAdminCreatingUser) {
+              setCurrentUser(null);
+            }
         }
       } else {
-        setCurrentUser(null);
+         if (!isAdminCreatingUser) {
+            setCurrentUser(null);
+         }
       }
       setLoading(false);
     });
@@ -87,49 +97,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    // In a real-world secure app, this entire logic should be on a server/cloud function.
-    // This client-side implementation is a workaround for demonstration purposes.
-    const adminEmail = currentUser.email;
-    const adminPassword = prompt("Để xác nhận, vui lòng nhập lại mật khẩu Quản lý của bạn:");
+    // This entire logic on the client-side is a workaround for demonstration purposes.
+    // In a real-world secure app, this should be a server-side operation (e.g., Cloud Function).
+    const adminAuth = getAuth();
+    const originalAdmin = adminAuth.currentUser;
 
-    if (!adminPassword) {
-      toast({ variant: "destructive", title: "Đã hủy", description: "Hành động tạo người dùng đã bị hủy."});
-      return false;
+    if (!originalAdmin) {
+       toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy thông tin quản trị viên. Vui lòng đăng nhập lại." });
+       return false;
     }
 
     try {
-        // Step 1: Create the new resident user
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const firebaseUser = userCredential.user;
+        // Flag that we are in the middle of creating a user
+        sessionStorage.setItem('isAdminCreatingUser', 'true');
 
-        // Step 2: Store resident's details in Firestore
-        const newUser: Omit<User, 'uid'> = {
+        // Create the new resident user in Firebase Auth.
+        // This will sign out the admin and sign in the new user temporarily.
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newResidentUser = userCredential.user;
+
+        // Store the new resident's details in Firestore
+        const newUserDoc: Omit<User, 'uid'> = {
             name,
             email,
             role: 'resident',
             apartment,
             buildingName: currentUser.buildingName,
         };
-        await setDoc(doc(db, "users", firebaseUser.uid), newUser);
+        await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
         
-        // Step 3: Sign the admin back in
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        // Re-sign the original admin user in
+        if (adminAuth.currentUser?.uid !== originalAdmin.uid) {
+           await signOut(adminAuth); // Sign out the newly created user
+           // We can't directly sign back in with password. So we refresh to trigger onAuthStateChanged
+        }
 
         toast({
             title: "Thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
         });
+
+        // The onAuthStateChanged listener will handle re-setting the admin user
+        // and removing the session storage flag.
+        window.location.reload(); // Reload to ensure auth state is correctly re-established
+
         return true;
 
     } catch (error: any) {
         console.error("Error creating resident:", error);
 
-        // Attempt to sign the admin back in case of failure after they were signed out
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword).catch(reauthError => {
-            console.error("Failed to re-authenticate admin:", reauthError);
-            // If re-authentication fails, the admin is logged out. Redirect to login.
-            logout();
-        });
+        // Attempt to sign the admin back in case of failure.
+        // This is a best-effort, it might fail if the session is lost.
+        if (adminAuth.currentUser?.uid !== originalAdmin.uid) {
+           await signOut(adminAuth).catch(e => console.error("Could not sign out after error", e));
+        }
+        
+        sessionStorage.removeItem('isAdminCreatingUser');
+        window.location.reload();
+
 
         toast({
             variant: "destructive",

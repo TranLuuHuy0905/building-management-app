@@ -1,13 +1,26 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { notifications } from '@/lib/data';
+import type { Notification } from '@/lib/types';
+import { getNotifications } from '@/lib/services/notification-service';
 import { NotificationItem } from '@/components/notifications/notification-item';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Bell } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
 
 export function RecentNotifications() {
-  const recentNotifications = notifications.slice(0, 3);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+        setLoading(true);
+        const fetchedNotifications = await getNotifications({ take: 3 });
+        setNotifications(fetchedNotifications);
+        setLoading(false);
+    };
+    fetchNotifications();
+  }, []);
 
   return (
     <Card className="shadow-sm">
@@ -23,11 +36,19 @@ export function RecentNotifications() {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {recentNotifications.map((notification) => (
-            <NotificationItem key={notification.id} notification={notification} isCompact={true} />
-          ))}
-        </div>
+        {loading ? (
+            <div className="flex items-center justify-center h-24">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        ) : notifications.length > 0 ? (
+            <div className="space-y-4">
+            {notifications.map((notification) => (
+                <NotificationItem key={notification.id} notification={notification} isCompact={true} />
+            ))}
+            </div>
+        ) : (
+            <p className="text-center text-muted-foreground">Không có thông báo nào.</p>
+        )}
       </CardContent>
     </Card>
   );

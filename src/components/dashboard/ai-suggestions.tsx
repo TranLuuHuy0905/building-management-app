@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lightbulb, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { generatePersonalizedSuggestions } from '@/ai/flows/generate-personalized-suggestions';
-import { bills, requests } from '@/lib/data';
+import { getBills } from '@/lib/services/bill-service';
+import { getRequests } from '@/lib/services/request-service';
+import { getNotifications } from '@/lib/services/notification-service';
+
 
 export function AiSuggestions() {
   const { currentUser } = useAuth();
@@ -19,18 +22,20 @@ export function AiSuggestions() {
       
       let historicalBehavior = '';
       if (currentUser.role === 'resident') {
-        const unpaidBills = bills.filter(b => b.apartment === currentUser.apartment && b.status === 'unpaid').length;
-        const openRequests = requests.filter(r => r.apartment === currentUser.apartment && r.status !== 'completed').length;
-        historicalBehavior = `User has ${unpaidBills} unpaid bill(s) and ${openRequests} open service request(s).`;
+        const unpaidBills = await getBills({ apartment: currentUser.apartment, status: 'unpaid' });
+        const openRequests = await getRequests({ apartment: currentUser.apartment }); // Simplified for demo
+        historicalBehavior = `User has ${unpaidBills.length} unpaid bill(s) and ${openRequests.filter(r => r.status !== 'completed').length} open service request(s).`;
       } else if (currentUser.role === 'admin') {
-        const pendingRequests = requests.filter(r => r.status === 'pending').length;
-        historicalBehavior = `There are ${pendingRequests} pending service requests.`;
+        const pendingRequests = await getRequests({ status: 'pending' });
+        historicalBehavior = `There are ${pendingRequests.length} pending service requests.`;
       } else if (currentUser.role === 'technician') {
-        const assignedTasks = requests.filter(r => r.assignedTo === currentUser.uid && r.status !== 'completed').length;
-        historicalBehavior = `User is assigned to ${assignedTasks} open task(s).`;
+        const assignedTasks = await getRequests({ assignedTo: currentUser.uid });
+        historicalBehavior = `User is assigned to ${assignedTasks.filter(r => r.status !== 'completed').length} open task(s).`;
       }
 
-      const availableBuildingData = "Elevator maintenance is scheduled for 2025-09-20. A resident meeting is on 2025-09-25.";
+      const recentNotifications = await getNotifications({ take: 1 });
+      const availableBuildingData = recentNotifications.length > 0 ? recentNotifications[0].content : "No new announcements.";
+
 
       try {
         const result = await generatePersonalizedSuggestions({

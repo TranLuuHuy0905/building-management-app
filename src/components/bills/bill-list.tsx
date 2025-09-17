@@ -1,21 +1,35 @@
 'use client';
-import { bills } from '@/lib/data';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { getBills } from '@/lib/services/bill-service';
+import type { Bill } from '@/lib/types';
 import { BillingOverview } from './billing-overview';
 import { BillItem } from './bill-item';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function BillList() {
     const { currentUser } = useAuth();
+    const [bills, setBills] = useState<Bill[]>([]);
+    const [loading, setLoading] = useState(true);
   
+    useEffect(() => {
+        if (!currentUser) return;
+
+        const fetchBills = async () => {
+            setLoading(true);
+            const params = currentUser.role === 'admin' ? {} : { apartment: currentUser.apartment };
+            const fetchedBills = await getBills(params);
+            setBills(fetchedBills);
+            setLoading(false);
+        };
+
+        fetchBills();
+    }, [currentUser]);
+
     const getTitle = () => {
       if (!currentUser) return '';
       return currentUser.role === 'admin' ? 'Quản lý thu phí' : 'Hóa đơn & Thanh toán';
     };
-  
-    const filteredBills = bills.filter(bill => {
-      if (!currentUser) return false;
-      return currentUser.role === 'admin' || bill.apartment === currentUser.apartment;
-    });
 
     return (
         <div>
@@ -23,12 +37,21 @@ export function BillList() {
             <h2 className="text-2xl font-bold text-gray-800 font-headline">{getTitle()}</h2>
           </div>
 
-          {currentUser?.role === 'admin' && <BillingOverview />}
+          {currentUser?.role === 'admin' && <BillingOverview bills={bills} loading={loading} />}
           
           <div className="space-y-4">
-            {filteredBills.map(bill => (
-              <BillItem key={bill.id} bill={bill} />
-            ))}
+            {loading ? (
+                <>
+                    <Skeleton className="h-40 w-full" />
+                    <Skeleton className="h-40 w-full" />
+                </>
+            ) : bills.length > 0 ? (
+                bills.map(bill => (
+                    <BillItem key={bill.id} bill={bill} />
+                ))
+            ) : (
+                <p className="text-center text-muted-foreground">Không tìm thấy hóa đơn nào.</p>
+            )}
           </div>
         </div>
       );

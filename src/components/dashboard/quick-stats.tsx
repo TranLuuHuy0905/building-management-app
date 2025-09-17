@@ -1,23 +1,68 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { requests, bills } from '@/lib/data';
+import { getRequests } from '@/lib/services/request-service';
+import { getBills } from '@/lib/services/bill-service';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreditCard, Wrench, CheckCircle } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
 export function QuickStats() {
   const { currentUser } = useAuth();
-  if (!currentUser) return null;
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const renderResidentStats = () => {
-    const unpaidTotal = bills
-      .filter((b) => b.apartment === currentUser?.apartment && b.status === 'unpaid')
-      .reduce((sum, b) => sum + b.total, 0);
-    const processingRequests = requests.filter(
-      (r) => r.apartment === currentUser?.apartment && r.status !== 'completed'
-    ).length;
+  useEffect(() => {
+    if (!currentUser) return;
 
-    return (
+    const fetchStats = async () => {
+        setLoading(true);
+        let newStats = {};
+        try {
+            if (currentUser.role === 'resident') {
+                const unpaidBills = await getBills({ apartment: currentUser.apartment, status: 'unpaid' });
+                const processingRequests = (await getRequests({ apartment: currentUser.apartment })).filter(r => r.status !== 'completed');
+                newStats = {
+                    unpaidTotal: unpaidBills.reduce((sum, b) => sum + b.total, 0),
+                    processingRequests: processingRequests.length
+                };
+            } else if (currentUser.role === 'admin') {
+                const paidBills = await getBills({ status: 'paid' }); // Simplified for demo
+                const pendingRequests = await getRequests({ status: 'pending' });
+                newStats = {
+                    totalRevenue: paidBills.reduce((sum, b) => sum + b.total, 0),
+                    pendingRequests: pendingRequests.length
+                };
+            } else if (currentUser.role === 'technician') {
+                const myRequests = await getRequests({ assignedTo: currentUser.uid });
+                newStats = {
+                    myTasks: myRequests.filter(r => r.status !== 'completed').length,
+                    completedTasks: myRequests.filter(r => r.status === 'completed').length,
+                };
+            }
+            setStats(newStats);
+        } catch (error) {
+            console.error("Failed to fetch stats:", error);
+            setStats({}); // Set to empty to avoid render errors
+        }
+        setLoading(false);
+    };
+
+    fetchStats();
+  }, [currentUser]);
+
+
+  if (loading) {
+      return (
+          <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+          </div>
+      )
+  }
+
+  const renderResidentStats = () => (
       <>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -25,7 +70,7 @@ export function QuickStats() {
             <CreditCard className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(unpaidTotal)}</div>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(stats?.unpaidTotal || 0)}</div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
@@ -34,52 +79,36 @@ export function QuickStats() {
             <Wrench className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{processingRequests}</div>
+            <div className="text-2xl font-bold text-primary">{stats?.processingRequests || 0}</div>
           </CardContent>
         </Card>
       </>
     );
-  };
 
-  const renderAdminStats = () => {
-    const totalRevenue = bills
-      .filter((b) => b.status === 'paid' && b.month === '09/2025')
-      .reduce((sum, b) => sum + b.total, 0);
-    const pendingRequests = requests.filter((r) => r.status === 'pending').length;
+  const renderAdminStats = () => (
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+          <CreditCard className="h-4 w-4 text-green-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.totalRevenue || 0)}</div>
+        </CardContent>
+      </Card>
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Yêu cầu chờ xử lý</CardTitle>
+          <Wrench className="h-4 w-4 text-accent" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-accent">{stats?.pendingRequests || 0}</div>
+        </CardContent>
+      </Card>
+    </>
+  );
 
-    return (
-      <>
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng thu tháng này</CardTitle>
-            <CreditCard className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yêu cầu chờ xử lý</CardTitle>
-            <Wrench className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">{pendingRequests}</div>
-          </CardContent>
-        </Card>
-      </>
-    );
-  };
-
-  const renderTechnicianStats = () => {
-    const myTasks = requests.filter(
-      (r) => r.assignedTo === currentUser?.uid && r.status !== 'completed'
-    ).length;
-    const completedTasks = requests.filter(
-        (r) => r.assignedTo === currentUser?.uid && r.status === 'completed'
-    ).length;
-
-    return (
+  const renderTechnicianStats = () => (
       <>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -87,7 +116,7 @@ export function QuickStats() {
             <Wrench className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{myTasks}</div>
+            <div className="text-2xl font-bold text-primary">{stats?.myTasks || 0}</div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
@@ -96,12 +125,11 @@ export function QuickStats() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedTasks}</div>
+            <div className="text-2xl font-bold text-green-600">{stats?.completedTasks || 0}</div>
           </CardContent>
         </Card>
       </>
     );
-  };
   
   const getStatsForRole = () => {
     switch (currentUser?.role) {

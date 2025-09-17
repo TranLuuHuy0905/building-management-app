@@ -1,13 +1,35 @@
 'use client';
-
-import { requests } from '@/lib/data';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { RequestItem } from './request-item';
+import type { Request } from '@/lib/types';
+import { getRequests } from '@/lib/services/request-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function RequestList() {
   const { currentUser } = useAuth();
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchRequests = async () => {
+      setLoading(true);
+      let params = {};
+      if (currentUser.role === 'resident') {
+        params = { apartment: currentUser.apartment };
+      } else if (currentUser.role === 'technician') {
+        params = { assignedTo: currentUser.uid };
+      }
+      const fetchedRequests = await getRequests(params);
+      setRequests(fetchedRequests);
+      setLoading(false);
+    };
+    fetchRequests();
+  }, [currentUser]);
   
   const getTitle = () => {
     if (!currentUser) return '';
@@ -18,13 +40,6 @@ export function RequestList() {
       default: return 'Phản ánh';
     }
   };
-
-  const filteredRequests = requests.filter(request => {
-    if (!currentUser) return false;
-    if (currentUser.role === 'resident') return request.apartment === currentUser.apartment;
-    if (currentUser.role === 'technician') return request.assignedTo === currentUser.uid;
-    return true; // Admin sees all
-  });
   
   return (
     <div>
@@ -39,9 +54,18 @@ export function RequestList() {
       </div>
       
       <div className="space-y-4">
-        {filteredRequests.map(request => (
-          <RequestItem key={request.id} request={request} />
-        ))}
+        {loading ? (
+             <>
+                <Skeleton className="h-44 w-full" />
+                <Skeleton className="h-44 w-full" />
+             </>
+        ) : requests.length > 0 ? (
+            requests.map(request => (
+                <RequestItem key={request.id} request={request} />
+            ))
+        ) : (
+            <p className="text-center text-muted-foreground pt-10">Không tìm thấy phản ánh nào.</p>
+        )}
       </div>
     </div>
   );

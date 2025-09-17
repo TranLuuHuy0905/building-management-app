@@ -1,17 +1,24 @@
 'use client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { bills } from '@/lib/data';
+import type { Bill } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { Banknote, CircleDollarSign } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
-export function BillingOverview() {
+export function BillingOverview({ bills, loading }: { bills: Bill[], loading: boolean }) {
+    
+    // This calculation is now simplified. For real-world apps, consider server-side aggregation.
     const totalRevenue = bills
-        .filter(b => b.status === 'paid' && b.month === '09/2025')
+        .filter(b => b.status === 'paid') 
         .reduce((sum, b) => sum + b.total, 0);
 
     const totalDebt = bills
         .filter(b => b.status === 'unpaid')
         .reduce((sum, b) => sum + b.total, 0);
+    
+    if(loading) {
+        return <Skeleton className="h-40 w-full mb-6" />
+    }
 
     return (
         <Card className="mb-6 shadow-sm">
@@ -25,7 +32,7 @@ export function BillingOverview() {
                            <Banknote className="w-6 h-6 text-green-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Tổng thu tháng này</p>
+                            <p className="text-sm text-muted-foreground">Tổng thu</p>
                             <p className="text-xl font-bold text-green-700">{formatCurrency(totalRevenue)}</p>
                         </div>
                     </div>

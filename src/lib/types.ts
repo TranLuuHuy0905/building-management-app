@@ -8,7 +8,7 @@ export interface User {
 }
 
 export interface Notification {
-  id: number;
+  id: string; // Changed to string for Firestore ID
   type: 'warning' | 'event' | 'reminder';
   title: string;
   content: string;
@@ -17,7 +17,7 @@ export interface Notification {
 }
 
 export interface Request {
-  id: number;
+  id: string; // Changed to string for Firestore ID
   type: 'electric' | 'water' | 'other';
   title: string;
   description: string;
@@ -31,7 +31,7 @@ export interface Request {
 }
 
 export interface Bill {
-  id: number;
+  id: string; // Changed to string for Firestore ID
   apartment: string;
   month: string;
   serviceFee: number;

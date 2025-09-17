@@ -13,7 +13,7 @@ interface AuthContextType {
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
   createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
-  createResidentsInBulk: (users: BulkUserCreationData[]) => Promise<{success: number, failed: number}>;
+  createResidentsInBulk: (users: BulkUserCreationData[], onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
@@ -126,8 +126,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [currentUser, toast]);
 
 
-  const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[]) => {
-      if (!currentUser || currentUser.role !== 'admin') {
+  const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[], onProgress: (count: number) => void) => {
+      if (!currentUser || !currentUser.email) {
           toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
           return { success: 0, failed: 0 };
       }
@@ -141,7 +141,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
-          // Re-authenticate admin to confirm their identity before performing sensitive operations
           const credential = EmailAuthProvider.credential(adminEmail, adminPassword);
           await reauthenticateWithCredential(auth.currentUser!, credential);
       } catch (error) {
@@ -152,13 +151,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       let successCount = 0;
       let failedCount = 0;
 
-      // This is not truly transactional. A failure mid-way will leave some users created.
-      // For a real-world app, this should be a single backend operation (e.g., a Cloud Function).
-      for (const user of users) {
+      for (let i = 0; i < users.length; i++) {
+          const user = users[i];
           try {
-              // Since createUserWithEmailAndPassword signs in the new user, we must sign out and sign back in the admin.
-              // This is very inefficient. The correct way is to use Firebase Admin SDK in a backend environment.
-              // For this client-side implementation, we accept the limitation that the admin might be briefly signed out.
               const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
               const newResidentUser = userCredential.user;
 
@@ -174,23 +169,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch (error: any) {
               console.error(`Failed to create user ${user.email}:`, error);
               failedCount++;
+          } finally {
+              // Always sign the admin back in
+              try {
+                  await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+              } catch (reauthError) {
+                  console.error("CRITICAL: Failed to sign admin back in:", reauthError);
+                  toast({
+                      variant: "destructive",
+                      title: "Lỗi nghiêm trọng",
+                      description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
+                  });
+                  window.location.assign('/login');
+                  return { success: successCount, failed: failedCount };
+              }
+              onProgress(i + 1);
           }
       }
-      
-      // After loop, sign admin back in
-      try {
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      } catch (error) {
-         console.error("Failed to sign admin back in:", error);
-         toast({
-            variant: "destructive",
-            title: "Lỗi nghiêm trọng",
-            description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
-          });
-          // Force a reload to go to login page
-          window.location.reload();
-      }
-
 
       return { success: successCount, failed: failedCount };
   }, [currentUser, toast]);

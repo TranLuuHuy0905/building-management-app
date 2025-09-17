@@ -55,7 +55,7 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
   }
 
   const handleDownloadTemplate = () => {
-    const blob = new Blob([CSV_TEMPLATE_HEADER, CSV_TEMPLATE_BODY], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + CSV_TEMPLATE_HEADER + CSV_TEMPLATE_BODY], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
@@ -100,8 +100,12 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                 return;
             }
             
-            setProgress(30);
-            const creationResult = await createResidentsInBulk(users);
+            const totalUsers = users.length;
+            const creationResult = await createResidentsInBulk(users, (processedCount) => {
+                const newProgress = 30 + (processedCount / totalUsers) * 70;
+                setProgress(newProgress);
+            });
+
             setProgress(100);
             setResults(creationResult);
 
@@ -145,11 +149,11 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
         
         { !results ? (
             <form onSubmit={handleSubmit} className="space-y-4">
-                <Alert>
+                <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Quan trọng!</AlertTitle>
                     <AlertDescription>
-                        Việc tạo tài khoản hàng loạt cần xác thực lại mật khẩu của bạn. Trình duyệt có thể hỏi mật khẩu của bạn để tiếp tục.
+                        Đây là một hành động nhạy cảm. Trình duyệt có thể sẽ hỏi mật khẩu của bạn để xác thực lại trước khi tiếp tục.
                     </AlertDescription>
                 </Alert>
 

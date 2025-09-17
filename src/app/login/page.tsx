@@ -20,7 +20,16 @@ export default function LoginPage() {
     }, [currentUser, loading, router]);
 
 
-    if(loading || currentUser) return null;
+    if(loading || currentUser) {
+        return (
+             <div className="flex h-screen items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Đang chuyển hướng...</p>
+                </div>
+            </div>
+        );
+    }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/80 to-purple-600 flex items-center justify-center p-4">

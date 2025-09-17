@@ -29,7 +29,7 @@ export function BottomNav({ user }: { user: User }) {
      const technicianItems = [
         { href: `/technician/home`, icon: Home, label: 'Trang chủ' },
         { href: `/technician/requests`, icon: Construction, label: 'Nhiệm vụ' },
-        { href: `/notifications`, icon: Bell, label: 'Thông báo' },
+        { href: '/notifications', icon: Bell, label: 'Thông báo' },
     ];
 
 
@@ -55,8 +55,8 @@ export function BottomNav({ user }: { user: User }) {
             href={item.href}
             className={cn(
               'flex flex-col items-center p-2 rounded-lg transition-colors duration-200',
-              // Use startsWith to handle nested routes if any
-              pathname.startsWith(item.href)
+              // Use startsWith to handle nested routes if any, and ensure /notifications is handled correctly
+              (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-primary'
             )}

@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Loader2 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
 
 export default function ResidentLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth();

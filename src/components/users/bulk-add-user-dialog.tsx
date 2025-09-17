@@ -18,6 +18,7 @@ import Papa from 'papaparse';
 import type { BulkUserCreationData } from '@/lib/types';
 import { Progress } from '../ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { ReauthDialog } from './reauth-dialog';
 
 interface BulkAddUserDialogProps {
     isOpen: boolean;
@@ -37,11 +38,15 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
   const [results, setResults] = useState<{success: number, failed: number} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isReauthDialogOpen, setIsReauthDialogOpen] = useState(false);
+  const [parsedUsers, setParsedUsers] = useState<BulkUserCreationData[]>([]);
+
   const resetState = () => {
     setFile(null);
     setIsSubmitting(false);
     setProgress(0);
     setResults(null);
+    setParsedUsers([]);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -68,21 +73,17 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFileParseAndValidate = (e: React.FormEvent) => {
+     e.preventDefault();
     if (!file) {
         toast({ variant: "destructive", title: "Lỗi", description: "Vui lòng chọn một tệp CSV." });
         return;
     }
     
-    setIsSubmitting(true);
-    setResults(null);
-    setProgress(5);
-
     Papa.parse<BulkUserCreationData>(file, {
         header: true,
         skipEmptyLines: true,
-        complete: async (results) => {
+        complete: (results) => {
             const users = results.data;
             const requiredFields: (keyof BulkUserCreationData)[] = ['name', 'email', 'apartment', 'password'];
             
@@ -96,34 +97,10 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                     title: "Tệp không hợp lệ",
                     description: "Tệp CSV phải chứa các cột 'name', 'email', 'apartment', 'password' và không có dòng trống.",
                 });
-                setIsSubmitting(false);
                 return;
             }
-            
-            const totalUsers = users.length;
-            const creationResult = await createResidentsInBulk(users, (processedCount) => {
-                const newProgress = 30 + (processedCount / totalUsers) * 70;
-                setProgress(newProgress);
-            });
-
-            setProgress(100);
-            setResults(creationResult);
-
-            if(creationResult.success > 0) {
-                 toast({
-                    title: "Hoàn tất!",
-                    description: `Đã tạo thành công ${creationResult.success} tài khoản.`,
-                });
-                onUsersAdded();
-            }
-            if(creationResult.failed > 0) {
-                 toast({
-                    variant: "destructive",
-                    title: "Có lỗi xảy ra",
-                    description: `Đã có lỗi khi tạo ${creationResult.failed} tài khoản. Kiểm tra console để biết thêm chi tiết.`,
-                });
-            }
-            setIsSubmitting(false);
+            setParsedUsers(users);
+            setIsReauthDialogOpen(true);
         },
         error: (error) => {
             console.error("CSV Parsing Error:", error);
@@ -132,12 +109,45 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                 title: "Lỗi xử lý tệp",
                 description: "Không thể đọc tệp CSV. Vui lòng kiểm tra định dạng tệp.",
             });
-            setIsSubmitting(false);
         }
     });
+  }
+
+  const handleReauthSuccess = async (adminPassword: string) => {
+    setIsReauthDialogOpen(false);
+    setIsSubmitting(true);
+    setResults(null);
+    setProgress(5);
+    
+    const totalUsers = parsedUsers.length;
+    const creationResult = await createResidentsInBulk(parsedUsers, adminPassword, (processedCount) => {
+        const newProgress = 30 + (processedCount / totalUsers) * 70;
+        setProgress(newProgress);
+    });
+
+    setProgress(100);
+    setResults(creationResult);
+
+    if(creationResult.success > 0) {
+         toast({
+            title: "Hoàn tất!",
+            description: `Đã tạo thành công ${creationResult.success} tài khoản.`,
+        });
+        onUsersAdded();
+    }
+    if(creationResult.failed > 0) {
+         toast({
+            variant: "destructive",
+            title: "Có lỗi xảy ra",
+            description: `Đã có lỗi khi tạo ${creationResult.failed} tài khoản. Kiểm tra console để biết thêm chi tiết.`,
+        });
+    }
+    setIsSubmitting(false);
   };
 
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -148,15 +158,7 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
         </DialogHeader>
         
         { !results ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Quan trọng!</AlertTitle>
-                    <AlertDescription>
-                        Đây là một hành động nhạy cảm. Trình duyệt có thể sẽ hỏi mật khẩu của bạn để xác thực lại trước khi tiếp tục.
-                    </AlertDescription>
-                </Alert>
-
+            <form onSubmit={handleFileParseAndValidate} className="space-y-4">
                 <div className="space-y-2">
                     <Label>Bước 1: Tải tệp mẫu</Label>
                     <p className="text-xs text-muted-foreground">Sử dụng tệp mẫu để đảm bảo đúng định dạng dữ liệu.</p>
@@ -183,14 +185,21 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                     <div className="space-y-2 pt-2">
                         <Label>Đang xử lý...</Label>
                         <Progress value={progress} />
+                        <p className="text-xs text-muted-foreground">Quá trình này có thể mất vài phút. Vui lòng không đóng cửa sổ.</p>
                     </div>
                 )}
                 
                 <DialogFooter>
                     <Button type="button" variant="secondary" onClick={() => handleClose(false)} disabled={isSubmitting}>Hủy</Button>
                     <Button type="submit" disabled={isSubmitting || !file}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Bắt đầu tạo
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Đang xử lý...
+                            </>
+                        ) : (
+                           "Bắt đầu tạo"
+                        )}
                     </Button>
                 </DialogFooter>
             </form>
@@ -215,5 +224,11 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
         }
       </DialogContent>
     </Dialog>
+    <ReauthDialog 
+        isOpen={isReauthDialogOpen}
+        onOpenChange={setIsReauthDialogOpen}
+        onReauthSuccess={handleReauthSuccess}
+    />
+    </>
   );
 }

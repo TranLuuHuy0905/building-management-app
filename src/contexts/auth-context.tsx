@@ -13,11 +13,12 @@ interface AuthContextType {
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
   createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
-  createResidentsInBulk: (users: BulkUserCreationData[], onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
+  createResidentsInBulk: (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   resetPassword: (email: string) => Promise<boolean>;
+  reauthenticate: (password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,14 +86,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    // We cannot just use `auth.currentUser` as it might be null or different
-    // when this function is called in a loop for bulk creation.
-    // Instead, we will create a temporary auth instance for creating users
-    // and then sign back in as the admin. This is a common pattern for admin actions.
-    // However, for simplicity and since Firebase Admin SDK is not used on client,
-    // we'll rely on the fact that creating a user doesn't sign the admin out immediately.
-    // A more robust solution would use Cloud Functions.
-
+    // This is a simplified client-side approach. For robust multi-user creation,
+    // a Firebase Cloud Function would be the recommended approach to avoid auth state complexities.
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newResidentUser = userCredential.user;
@@ -126,34 +121,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [currentUser, toast]);
 
 
-  const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[], onProgress: (count: number) => void) => {
+  const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => {
       if (!currentUser || !currentUser.email) {
           toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
           return { success: 0, failed: 0 };
       }
       
       const adminEmail = currentUser.email;
-      const adminPassword = prompt("Để xác nhận hành động này, vui lòng nhập lại mật khẩu của bạn:");
 
-      if (!adminPassword) {
-          toast({ variant: "destructive", title: "Hủy bỏ", description: "Hành động đã bị hủy." });
-          return { success: 0, failed: 0 };
-      }
-
-      try {
-          const credential = EmailAuthProvider.credential(adminEmail, adminPassword);
-          await reauthenticateWithCredential(auth.currentUser!, credential);
-      } catch (error) {
-          toast({ variant: "destructive", title: "Xác thực thất bại", description: "Mật khẩu không chính xác. Hành động đã bị hủy." });
-          return { success: 0, failed: 0 };
-      }
-
+      // Re-authentication is handled by the component before calling this function.
+      // Here we just proceed with the creation logic.
+      
       let successCount = 0;
       let failedCount = 0;
 
       for (let i = 0; i < users.length; i++) {
           const user = users[i];
           try {
+              // This creates the user but also signs them in, signing the admin out.
               const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
               const newResidentUser = userCredential.user;
 
@@ -170,7 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.error(`Failed to create user ${user.email}:`, error);
               failedCount++;
           } finally {
-              // Always sign the admin back in
+              // IMPORTANT: Sign the admin back in immediately to continue the loop
               try {
                   await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
               } catch (reauthError) {
@@ -179,8 +164,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                       variant: "destructive",
                       title: "Lỗi nghiêm trọng",
                       description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
+                      duration: 10000,
                   });
+                  // Force a page reload to login screen if re-auth fails
                   window.location.assign('/login');
+                  // Stop the process
                   return { success: successCount, failed: failedCount };
               }
               onProgress(i + 1);
@@ -190,6 +178,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: successCount, failed: failedCount };
   }, [currentUser, toast]);
 
+  const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+        toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy người dùng." });
+        return false;
+    }
+    const credential = EmailAuthProvider.credential(user.email, password);
+    try {
+        await reauthenticateWithCredential(user, credential);
+        return true;
+    } catch (error) {
+        toast({ variant: "destructive", title: "Xác thực thất bại", description: "Mật khẩu không chính xác." });
+        return false;
+    }
+  }, [toast]);
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -278,7 +281,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword, reauthenticate }}>
       {children}
     </AuthContext.Provider>
   );

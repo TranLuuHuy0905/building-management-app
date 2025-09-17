@@ -2,8 +2,9 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import type { User } from '@/lib/types';
-import { LogOut, Building2 } from 'lucide-react';
+import { LogOut, Building2, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export function AppHeader({ user }: { user: User }) {
   const { logout } = useAuth();
@@ -21,14 +22,21 @@ export function AppHeader({ user }: { user: User }) {
                 </p>
             </div>
         </div>
-        <Button
-          onClick={logout}
-          variant="ghost"
-          size="icon"
-          aria-label="Đăng xuất"
-        >
-          <LogOut className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="icon" aria-label="Hồ sơ">
+                <Link href="/profile">
+                    <UserCog className="w-5 h-5" />
+                </Link>
+            </Button>
+            <Button
+              onClick={logout}
+              variant="ghost"
+              size="icon"
+              aria-label="Đăng xuất"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+        </div>
       </div>
     </header>
   );

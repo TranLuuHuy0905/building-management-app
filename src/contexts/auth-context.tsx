@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, type User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
@@ -15,6 +15,7 @@ interface AuthContextType {
   createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  changeUserPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,7 +61,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
 
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
-      // onAuthStateChanged will handle setting the user and redirection
       toast({
         title: "Thành công!",
         description: `Tài khoản quản lý cho tòa nhà ${buildingName} đã được tạo.`,
@@ -83,7 +83,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    // We need to sign out the admin to create a new user, and then sign them back in.
     const adminUser = auth.currentUser;
     if (!adminUser) {
         toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy người dùng quản trị viên hiện tại." });
@@ -91,13 +90,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-        // This is a workaround for client-side user creation by another user.
-        // It's not ideal. A backend function (e.g., Firebase Functions) would be better.
-        
-        // 1. Get admin credentials to re-login later. We can't get the password, so we rely on the fact that onAuthStateChanged will handle it.
-        const adminUid = adminUser.uid;
-
-        // 2. Create the new resident user. This will sign the admin out.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newResidentUser = userCredential.user;
 
@@ -110,14 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
         
-        // 3. The onAuthStateChanged listener will now fire with the new user. 
-        // We need to switch back to the admin. To do this, we need to log out the new user and trigger a re-check for the admin.
-        // This part is tricky on the client. The simplest way is to force a re-login for the admin.
-        // A better flow would use a temporary password for the new user and have them change it.
-        // For now, we will log out the new user and rely on our auth persistence to restore the admin session.
-        await signOut(auth); // Sign out the newly created resident
-
-        // onAuthStateChanged will now fire again with `null`, then with the persisted admin user.
+        await signOut(auth);
 
         toast({
             title: "Thành công!",
@@ -129,10 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
         console.error("Error creating resident:", error);
         
-        // Ensure admin is still logged in if something fails
         if (!auth.currentUser) {
-            // This is a failsafe. It's hard to recover the admin session perfectly without their password.
-            // A full page reload might trigger the persistence layer to restore the session.
             window.location.reload();
         }
 
@@ -150,7 +132,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle redirection.
       toast({
         title: "Đăng nhập thành công!",
         description: "Chào mừng bạn đã trở lại.",
@@ -171,7 +152,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
-      // onAuthStateChanged will set currentUser to null
       router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);
@@ -183,8 +163,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [router, toast]);
 
+  const changeUserPassword = useCallback(async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy người dùng." });
+      return false;
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+
+    try {
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      toast({ title: "Thành công", description: "Mật khẩu của bạn đã được thay đổi." });
+      return true;
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      let description = "Đã có lỗi xảy ra.";
+      if (error.code === 'auth/wrong-password') {
+        description = "Mật khẩu hiện tại không chính xác.";
+      } else if (error.code === 'auth/weak-password') {
+        description = "Mật khẩu mới quá yếu. Vui lòng chọn mật khẩu khác mạnh hơn.";
+      }
+      toast({ variant: "destructive", title: "Đổi mật khẩu thất bại", description });
+      return false;
+    }
+  }, [toast]);
+
+
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout, changeUserPassword }}>
       {children}
     </AuthContext.Provider>
   );

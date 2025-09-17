@@ -1,6 +1,6 @@
 import { RequestList } from "@/components/requests/request-list";
 
-export default function RequestsPage() {
+export default function AdminRequestsPage() {
     return (
         <div className="container mx-auto p-4">
             <RequestList />

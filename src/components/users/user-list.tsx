@@ -35,13 +35,13 @@ export function UserList() {
       if (!currentUser || !currentUser.buildingName) return;
       setLoading(true);
       const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
-      // Sort to show admin first, then others
-      const sortedUsers = fetchedUsers.sort((a, b) => {
-        if (a.role === 'admin') return -1;
-        if (b.role === 'admin') return 1;
-        return a.name.localeCompare(b.name);
-      });
-      setUsers(sortedUsers);
+      
+      // Filter to show only residents and sort them by name
+      const residentUsers = fetchedUsers
+        .filter(user => user.role === 'resident')
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setUsers(residentUsers);
       setLoading(false);
   };
 
@@ -56,7 +56,7 @@ export function UserList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 font-headline">Quản lý Thành viên</h2>
+        <h2 className="text-2xl font-bold text-gray-800 font-headline">Quản lý Cư dân</h2>
         {currentUser?.role === 'admin' && (
           <div className="flex gap-2">
             <Button onClick={() => setIsBulkAddDialogOpen(true)}>
@@ -111,7 +111,7 @@ export function UserList() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center">
-                        Chưa có thành viên nào.
+                        Chưa có tài khoản cư dân nào.
                       </TableCell>
                     </TableRow>
                   )}

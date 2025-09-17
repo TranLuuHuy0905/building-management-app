@@ -3,7 +3,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
+  createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -31,7 +32,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userDoc.exists()) {
           setCurrentUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
         } else {
-          // Handle case where user exists in Auth but not Firestore
           setCurrentUser(null);
         }
       } else {
@@ -69,12 +69,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast({
         variant: "destructive",
         title: "Lỗi đăng ký",
-        description: error.message || "Đã có lỗi xảy ra.",
+        description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : (error.message || "Đã có lỗi xảy ra."),
       });
     } finally {
       setLoading(false);
     }
   }, [router, toast]);
+
+ const createResident = useCallback(async (name: string, apartment: string, email: string, password: string) => {
+    if (!currentUser || currentUser.role !== 'admin' || !currentUser.buildingName) {
+        toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
+        return false;
+    }
+
+    try {
+        // This is a temporary admin auth context. In a real app, this should be done on a secure backend.
+        const tempApp = auth.app;
+        const tempAuth = getAuth(tempApp);
+        
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+        const firebaseUser = userCredential.user;
+
+        const newUser: Omit<User, 'uid'> = {
+            name,
+            email,
+            role: 'resident',
+            apartment,
+            buildingName: currentUser.buildingName,
+        };
+
+        await setDoc(doc(db, "users", firebaseUser.uid), newUser);
+
+        toast({
+            title: "Thành công!",
+            description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
+        });
+        return true;
+    } catch (error: any) {
+        console.error("Error creating resident:", error);
+        toast({
+            variant: "destructive",
+            title: "Lỗi tạo tài khoản",
+            description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo tài khoản cho cư dân.",
+        });
+        return false;
+    }
+}, [currentUser, toast]);
+
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -101,6 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
+      setCurrentUser(null);
       router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);
@@ -113,8 +155,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [router, toast]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, login, logout }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout }}>
+      {children}
     </AuthContext.Provider>
   );
 };

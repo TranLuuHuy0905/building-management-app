@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, type User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
@@ -16,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -189,10 +190,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
   }, [toast]);
+  
+  const resetPassword = useCallback(async (email: string): Promise<boolean> => {
+    try {
+        await sendPasswordResetEmail(auth, email);
+        toast({
+            title: "Kiểm tra email của bạn",
+            description: `Một liên kết đặt lại mật khẩu đã được gửi đến ${email}.`,
+        });
+        return true;
+    } catch (error: any) {
+        console.error("Error sending password reset email:", error);
+        let description = "Đã có lỗi xảy ra. Vui lòng thử lại.";
+        if (error.code === 'auth/user-not-found') {
+            description = "Không tìm thấy tài khoản nào với địa chỉ email này.";
+        }
+        toast({
+            variant: "destructive",
+            title: "Gửi email thất bại",
+            description,
+        });
+        return false;
+    }
+  }, [toast]);
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout, changeUserPassword }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, login, logout, changeUserPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

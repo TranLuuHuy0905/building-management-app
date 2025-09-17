@@ -46,19 +46,20 @@ export function UserList() {
               <Plus className="w-5 h-5" />
               <span className="sr-only">Thêm thành viên</span>
             </Button>
-            <AddUserDialog 
-              isOpen={isAddUserDialogOpen} 
-              onOpenChange={setIsAddUserDialogOpen}
-              onUserAdded={handleUserAdded}
-            />
-            <BulkAddUserDialog
-              isOpen={isBulkAddDialogOpen}
-              onOpenChange={setIsBulkAddDialogOpen}
-              onUsersAdded={handleUserAdded}
-            />
-          </>
+          </div>
         )}
       </div>
+      
+      <AddUserDialog 
+        isOpen={isAddUserDialogOpen} 
+        onOpenChange={setIsAddUserDialogOpen}
+        onUserAdded={handleUserAdded}
+      />
+      <BulkAddUserDialog
+        isOpen={isBulkAddDialogOpen}
+        onOpenChange={setIsBulkAddDialogOpen}
+        onUsersAdded={handleUserAdded}
+      />
       
       <div className="space-y-4">
         {loading ? (

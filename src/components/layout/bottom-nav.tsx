@@ -11,26 +11,24 @@ export function BottomNav({ user }: { user: User }) {
   const pathname = usePathname();
 
   const getNavItems = () => {
-    const base_path = user.role === 'admin' ? '/admin' : '/resident';
-
-    const residentItems = [
-      { href: `${base_path}/home`, icon: Home, label: 'Trang chủ' },
-      { href: '/notifications', icon: Bell, label: 'Thông báo' },
-      { href: `${base_path}/requests`, icon: Wrench, label: 'Phản ánh' },
-      { href: `${base_path}/bills`, icon: CreditCard, label: 'Hóa đơn' },
-    ];
-
     const adminItems = [
-      { href: `${base_path}/home`, icon: Home, label: 'Trang chủ' },
+      { href: `/admin/home`, icon: Home, label: 'Trang chủ' },
       { href: '/notifications', icon: Bell, label: 'Thông báo' },
-      { href: `${base_path}/requests`, icon: Wrench, label: 'Phản ánh' },
-      { href: `${base_path}/bills`, icon: CreditCard, label: 'Thu phí' },
-      { href: `${base_path}/users`, icon: Users, label: 'Thành viên' },
+      { href: `/admin/requests`, icon: Wrench, label: 'Phản ánh' },
+      { href: `/admin/bills`, icon: CreditCard, label: 'Thu phí' },
+      { href: `/admin/users`, icon: Users, label: 'Thành viên' },
+    ];
+    
+    const residentItems = [
+      { href: `/resident/home`, icon: Home, label: 'Trang chủ' },
+      { href: '/notifications', icon: Bell, label: 'Thông báo' },
+      { href: `/resident/requests`, icon: Wrench, label: 'Phản ánh' },
+      { href: `/resident/bills`, icon: CreditCard, label: 'Hóa đơn' },
     ];
 
      const technicianItems = [
-        { href: `/home`, icon: Home, label: 'Trang chủ' },
-        { href: `/requests`, icon: Construction, label: 'Nhiệm vụ' },
+        { href: `/technician/home`, icon: Home, label: 'Trang chủ' },
+        { href: `/technician/requests`, icon: Construction, label: 'Nhiệm vụ' },
         { href: `/notifications`, icon: Bell, label: 'Thông báo' },
     ];
 

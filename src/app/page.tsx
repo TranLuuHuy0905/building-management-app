@@ -11,7 +11,10 @@ export default function RootPage() {
   useEffect(() => {
     if (!loading) {
       if (currentUser) {
-        router.replace('/home');
+        const homePage = currentUser.role === 'admin' ? '/admin/home' : 
+                         currentUser.role === 'resident' ? '/resident/home' :
+                         '/technician/home';
+        router.replace(homePage);
       } else {
         router.replace('/login');
       }

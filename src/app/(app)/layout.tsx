@@ -17,24 +17,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !currentUser) {
       router.replace('/login');
+      return;
     }
 
     if (!loading && currentUser) {
-      // Redirect to role-specific homepage if they land on a generic path
-      const currentRouteRole = pathname.split('/')[1]; // e.g., 'admin' or 'resident'
-      const userRouteRole = currentUser.role === 'admin' ? 'admin' : 'resident';
+      // Define user's base route based on role
+      const userRouteRole = currentUser.role === 'admin' ? 'admin' :
+                             currentUser.role === 'resident' ? 'resident' :
+                             'technician';
 
-      // Allow access to shared routes
+      const currentRouteRole = pathname.split('/')[1];
+
+      // Allow access to shared routes regardless of role
       if (SHARED_ROUTES.some(route => pathname.startsWith(route))) {
         return;
       }
 
-      if (currentUser.role === 'technician' && pathname.startsWith('/requests')) {
-        return;
-      }
-      
-      // If user is on a page not matching their role, redirect them
-      if (currentRouteRole !== userRouteRole && userRouteRole) {
+      // If user is on a page not matching their role, redirect them to their home.
+      if (currentRouteRole !== userRouteRole) {
          router.replace(`/${userRouteRole}/home`);
       }
     }

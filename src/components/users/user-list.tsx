@@ -2,12 +2,27 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2, User as UserIcon, Upload } from 'lucide-react';
+import { Plus, Loader2, Upload } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { getUsers } from '@/lib/services/user-service';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from '@/components/ui/badge';
 import { AddUserDialog } from './add-user-dialog';
 import { BulkAddUserDialog } from './bulk-add-user-dialog';
+import { Card, CardContent } from '../ui/card';
+
+const roleBadges: { [key in User['role']]: React.ReactNode } = {
+    'admin': <Badge variant="destructive">Quản lý</Badge>,
+    'resident': <Badge variant="secondary">Cư dân</Badge>,
+    'technician': <Badge variant="outline">Kỹ thuật</Badge>,
+}
 
 export function UserList() {
   const { currentUser } = useAuth();
@@ -20,7 +35,13 @@ export function UserList() {
       if (!currentUser || !currentUser.buildingName) return;
       setLoading(true);
       const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
-      setUsers(fetchedUsers.filter(u => u.uid !== currentUser.uid)); // Exclude current admin
+      // Sort to show admin first, then others
+      const sortedUsers = fetchedUsers.sort((a, b) => {
+        if (a.role === 'admin') return -1;
+        if (b.role === 'admin') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      setUsers(sortedUsers);
       setLoading(false);
   };
 
@@ -42,9 +63,9 @@ export function UserList() {
               <Upload className="mr-2 h-4 w-4" />
               Tạo hàng loạt
             </Button>
-            <Button size="icon" onClick={() => setIsAddUserDialogOpen(true)}>
-              <Plus className="w-5 h-5" />
-              <span className="sr-only">Thêm thành viên</span>
+            <Button onClick={() => setIsAddUserDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Thêm mới
             </Button>
           </div>
         )}
@@ -61,30 +82,44 @@ export function UserList() {
         onUsersAdded={handleUserAdded}
       />
       
-      <div className="space-y-4">
-        {loading ? (
-            <div className="flex items-center justify-center pt-10">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        ) : users.length > 0 ? (
-            users.map(user => (
-              <Card key={user.uid} className="shadow-sm">
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="p-3 bg-secondary rounded-full">
-                    <UserIcon className="w-5 h-5 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-semibold">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    {user.apartment && <p className="text-xs text-muted-foreground">Căn hộ: {user.apartment}</p>}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-        ) : (
-             <p className="text-center text-muted-foreground pt-10">Chưa có thành viên nào.</p>
-        )}
-      </div>
+      <Card>
+        <CardContent className="p-0">
+            {loading ? (
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tên</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Căn hộ</TableHead>
+                    <TableHead>Vai trò</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length > 0 ? (
+                    users.map(user => (
+                      <TableRow key={user.uid}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.apartment || 'N/A'}</TableCell>
+                        <TableCell>{roleBadges[user.role]}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        Chưa có thành viên nào.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

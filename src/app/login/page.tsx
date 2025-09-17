@@ -15,10 +15,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (!loading && currentUser) {
-            const homePage = currentUser.role === 'admin' ? '/admin/home' : 
-                         currentUser.role === 'resident' ? '/resident/home' :
-                         '/technician/home';
-            router.replace(homePage);
+            router.replace(`/${currentUser.role}/home`);
         }
     }, [currentUser, loading, router]);
 

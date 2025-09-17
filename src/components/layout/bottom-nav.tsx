@@ -42,20 +42,20 @@ export function BottomNav({ user }: { user: User }) {
   }
 
   const navItems = getNavItems();
-  const gridColsClass = `grid-cols-${navItems.length}`;
-
+  // The grid-cols-x class needs to be generated at build time, so we can't use dynamic values like `grid-cols-${navItems.length}`.
+  // We will use a fixed number of columns that works for all roles.
+  const gridClass = navItems.length === 5 ? 'grid-cols-5' : (navItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3');
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-[0_-2px_10px_-3px_rgba(0,0,0,0.1)]">
-      <div className={cn("container mx-auto grid items-center justify-around py-2", gridColsClass)}>
+      <div className={cn("container mx-auto grid items-center justify-around py-2", gridClass)}>
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
               'flex flex-col items-center p-2 rounded-lg transition-colors duration-200',
-              // Check if the current path starts with the item's href. 
-              // This handles nested routes correctly.
+              // Use startsWith to handle nested routes if any
               pathname.startsWith(item.href)
                 ? 'text-primary'
                 : 'text-muted-foreground hover:text-primary'

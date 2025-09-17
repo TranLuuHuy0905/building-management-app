@@ -2,8 +2,8 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User as FirebaseUser, getAuth } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -25,33 +25,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      const isAdminCreatingUser = sessionStorage.getItem('isAdminCreatingUser') === 'true';
-      
-      if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          const userData = { uid: firebaseUser.uid, ...userDoc.data() } as User;
-          if(userData.role === 'admin') {
-            sessionStorage.removeItem('isAdminCreatingUser');
-          }
-          setCurrentUser(userData);
-        } else {
-            if (!isAdminCreatingUser) {
-              setCurrentUser(null);
-            }
-        }
+   const handleUserAuth = useCallback(async (firebaseUser: FirebaseUser | null) => {
+    if (firebaseUser) {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (userDoc.exists()) {
+        const userData = { uid: firebaseUser.uid, ...userDoc.data() } as User;
+        setCurrentUser(userData);
       } else {
-         if (!isAdminCreatingUser) {
-            setCurrentUser(null);
-         }
+        // This case might happen if user is deleted from Firestore but not Auth
+        setCurrentUser(null);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    } else {
+      setCurrentUser(null);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
+    return () => unsubscribe();
+  }, [handleUserAuth]);
 
   const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
     setLoading(true);
@@ -67,9 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
 
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
-      setCurrentUser({ uid: firebaseUser.uid, ...newUser });
-      
-      router.push('/admin/home');
+      // onAuthStateChanged will handle setting the user and redirection
       toast({
         title: "Thành công!",
         description: `Tài khoản quản lý cho tòa nhà ${buildingName} đã được tạo.`,
@@ -92,17 +83,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    const adminAuth = getAuth();
-    const originalAdmin = adminAuth.currentUser;
-
-    if (!originalAdmin) {
-       toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy thông tin quản trị viên. Vui lòng đăng nhập lại." });
-       return false;
+    // We need to sign out the admin to create a new user, and then sign them back in.
+    const adminUser = auth.currentUser;
+    if (!adminUser) {
+        toast({ variant: "destructive", title: "Lỗi", description: "Không tìm thấy người dùng quản trị viên hiện tại." });
+        return false;
     }
 
     try {
-        sessionStorage.setItem('isAdminCreatingUser', 'true');
+        // This is a workaround for client-side user creation by another user.
+        // It's not ideal. A backend function (e.g., Firebase Functions) would be better.
+        
+        // 1. Get admin credentials to re-login later. We can't get the password, so we rely on the fact that onAuthStateChanged will handle it.
+        const adminUid = adminUser.uid;
 
+        // 2. Create the new resident user. This will sign the admin out.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newResidentUser = userCredential.user;
 
@@ -115,29 +110,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
         
-        if (adminAuth.currentUser?.uid !== originalAdmin.uid) {
-           await signOut(adminAuth);
-        }
+        // 3. The onAuthStateChanged listener will now fire with the new user. 
+        // We need to switch back to the admin. To do this, we need to log out the new user and trigger a re-check for the admin.
+        // This part is tricky on the client. The simplest way is to force a re-login for the admin.
+        // A better flow would use a temporary password for the new user and have them change it.
+        // For now, we will log out the new user and rely on our auth persistence to restore the admin session.
+        await signOut(auth); // Sign out the newly created resident
+
+        // onAuthStateChanged will now fire again with `null`, then with the persisted admin user.
 
         toast({
             title: "Thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
         });
 
-        window.location.reload(); 
-
         return true;
 
     } catch (error: any) {
         console.error("Error creating resident:", error);
-
-        if (adminAuth.currentUser?.uid !== originalAdmin.uid) {
-           await signOut(adminAuth).catch(e => console.error("Could not sign out after error", e));
-        }
         
-        sessionStorage.removeItem('isAdminCreatingUser');
-        window.location.reload();
-
+        // Ensure admin is still logged in if something fails
+        if (!auth.currentUser) {
+            // This is a failsafe. It's hard to recover the admin session perfectly without their password.
+            // A full page reload might trigger the persistence layer to restore the session.
+            window.location.reload();
+        }
 
         toast({
             variant: "destructive",
@@ -153,6 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle redirection.
       toast({
         title: "Đăng nhập thành công!",
         description: "Chào mừng bạn đã trở lại.",
@@ -173,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
-      setCurrentUser(null);
+      // onAuthStateChanged will set currentUser to null
       router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);

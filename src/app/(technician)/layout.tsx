@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation';
 
 const SHARED_ROUTES = ['/notifications'];
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function TechnicianLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -21,21 +21,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!loading && currentUser) {
-      // Define user's base route based on role
-      const userRouteRole = currentUser.role === 'admin' ? 'admin' :
-                             currentUser.role === 'resident' ? 'resident' :
-                             'technician';
-
-      const currentRouteRole = pathname.split('/')[1];
-
-      // Allow access to shared routes regardless of role
-      if (SHARED_ROUTES.some(route => pathname.startsWith(route))) {
+       if (SHARED_ROUTES.some(route => pathname.startsWith(route))) {
         return;
       }
-
-      // If user is on a page not matching their role, redirect them to their home.
-      if (currentRouteRole !== userRouteRole) {
-         router.replace(`/${userRouteRole}/home`);
+      if (currentUser.role !== 'technician') {
+         router.replace(`/${currentUser.role}/home`);
       }
     }
   }, [currentUser, loading, router, pathname]);
@@ -50,6 +40,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  if (currentUser.role !== 'technician') return null;
 
   return (
     <div className="min-h-screen bg-background">

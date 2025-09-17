@@ -1,9 +1,8 @@
 export interface User {
-  id: string;
+  uid: string;
   name: string;
+  email: string;
   role: 'resident' | 'admin' | 'technician';
-  username: string;
-  password?: string; // Should be handled securely on a backend
   apartment?: string;
   buildingName?: string;
 }

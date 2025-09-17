@@ -22,7 +22,7 @@ export function RequestList() {
   const filteredRequests = requests.filter(request => {
     if (!currentUser) return false;
     if (currentUser.role === 'resident') return request.apartment === currentUser.apartment;
-    if (currentUser.role === 'technician') return request.assignedTo === currentUser.id;
+    if (currentUser.role === 'technician') return request.assignedTo === currentUser.uid;
     return true; // Admin sees all
   });
   

@@ -2,15 +2,18 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
-import { useToast } from "@/hooks/use-toast"
-
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   currentUser: User | null;
-  registerAdmin: (name: string, buildingName: string, username: string, password: string) => Promise<void>;
-  logout: () => void;
   loading: boolean;
+  registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,62 +25,96 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          setCurrentUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
+        } else {
+          // Handle case where user exists in Auth but not Firestore
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
       }
-    } catch (error) {
-      console.error("Could not parse user from localStorage", error);
-      localStorage.removeItem('currentUser');
-    }
-    setLoading(false);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const registerAdmin = useCallback(async (name: string, buildingName: string, username: string, password: string) => {
-    // In a real app, you would perform more robust validation and store the password securely.
-    // This is a simplified example.
-    if (!name || !buildingName || !username || !password) {
-        toast({
-            variant: "destructive",
-            title: "Lỗi",
-            description: "Vui lòng điền đầy đủ thông tin.",
-        });
-        return;
+  const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      const newUser: Omit<User, 'uid'> = {
+        name,
+        email,
+        role: 'admin',
+        buildingName,
+      };
+
+      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      setCurrentUser({ uid: firebaseUser.uid, ...newUser });
+      
+      router.push('/home');
+      toast({
+        title: "Thành công!",
+        description: `Tài khoản quản lý cho tòa nhà ${buildingName} đã được tạo.`,
+      });
+    } catch (error: any) {
+      console.error("Error registering admin:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi đăng ký",
+        description: error.message || "Đã có lỗi xảy ra.",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    const newAdmin: User = {
-      name,
-      username,
-      role: 'admin',
-      id: `admin_${Date.now()}`,
-      buildingName,
-      // Storing password in plaintext is insecure. This is for demo purposes only.
-      // In a real application, you MUST hash and salt the password.
-      password: password 
-    };
-    
-    setCurrentUser(newAdmin);
-    localStorage.setItem('currentUser', JSON.stringify(newAdmin));
-    // In a real app, you would save the new user to your database.
-    
-    router.push('/home');
-    toast({
-      title: "Thành công!",
-      description: `Tài khoản quản lý cho tòa nhà ${buildingName} đã được tạo.`,
-    })
-
   }, [router, toast]);
 
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    router.push('/login');
-  }, [router]);
+  const login = useCallback(async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/home');
+      toast({
+        title: "Đăng nhập thành công!",
+        description: "Chào mừng bạn đã trở lại.",
+      });
+    } catch (error: any) {
+      console.error("Error logging in:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi đăng nhập",
+        description: "Email hoặc mật khẩu không đúng.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [router, toast]);
+
+
+  const logout = useCallback(async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out:", error);
+       toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Đăng xuất không thành công.",
+      });
+    }
+  }, [router, toast]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, registerAdmin, logout, loading }}>
-      {children}
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, login, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

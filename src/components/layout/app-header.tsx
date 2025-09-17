@@ -14,7 +14,7 @@ export function AppHeader({ user }: { user: User }) {
         <div className="flex items-center gap-3">
             <Building2 className="h-6 w-6 text-primary" />
             <div>
-                <h1 className="text-lg font-bold text-gray-800 font-headline">Building Buddy</h1>
+                <h1 className="text-lg font-bold text-gray-800 font-headline">{user.buildingName || 'Building Buddy'}</h1>
                 <p className="text-xs text-gray-600">
                 Xin chào, {user.name}
                 {user.apartment && ` - ${user.apartment}`}

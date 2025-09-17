@@ -7,49 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
-export function RegisterForm() {
-  const [name, setName] = useState('');
-  const [buildingName, setBuildingName] = useState('');
+export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { registerAdmin } = useAuth();
+  const { login } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await registerAdmin(name, buildingName, email, password);
+    await login(email, password);
     setIsSubmitting(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-          <Label htmlFor="name">Tên của bạn</Label>
+          <Label htmlFor="login-email">Email</Label>
           <Input
-          id="name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nhập họ và tên"
-          required
-          />
-      </div>
-      <div className="space-y-2">
-          <Label htmlFor="buildingName">Tên tòa nhà</Label>
-          <Input
-          id="buildingName"
-          type="text"
-          value={buildingName}
-          onChange={(e) => setBuildingName(e.target.value)}
-          placeholder="Ví dụ: Chung cư ABC"
-          required
-          />
-      </div>
-      <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-          id="email"
+          id="login-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -58,21 +34,20 @@ export function RegisterForm() {
           />
       </div>
       <div className="space-y-2">
-          <Label htmlFor="password">Mật khẩu</Label>
+          <Label htmlFor="login-password">Mật khẩu</Label>
           <Input
-          id="password"
+          id="login-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Nhập mật khẩu (ít nhất 6 ký tự)"
+          placeholder="Nhập mật khẩu"
           required
-          minLength={6}
           />
       </div>
 
       <Button type="submit" className="w-full font-semibold" disabled={isSubmitting}>
         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Đăng ký
+        Đăng nhập
       </Button>
     </form>
   );

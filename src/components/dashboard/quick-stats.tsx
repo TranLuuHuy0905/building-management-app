@@ -73,10 +73,10 @@ export function QuickStats() {
 
   const renderTechnicianStats = () => {
     const myTasks = requests.filter(
-      (r) => r.assignedTo === currentUser?.id && r.status !== 'completed'
+      (r) => r.assignedTo === currentUser?.uid && r.status !== 'completed'
     ).length;
     const completedTasks = requests.filter(
-        (r) => r.assignedTo === currentUser?.id && r.status === 'completed'
+        (r) => r.assignedTo === currentUser?.uid && r.status === 'completed'
     ).length;
 
     return (

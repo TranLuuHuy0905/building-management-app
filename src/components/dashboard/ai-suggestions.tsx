@@ -26,7 +26,7 @@ export function AiSuggestions() {
         const pendingRequests = requests.filter(r => r.status === 'pending').length;
         historicalBehavior = `There are ${pendingRequests} pending service requests.`;
       } else if (currentUser.role === 'technician') {
-        const assignedTasks = requests.filter(r => r.assignedTo === currentUser.id && r.status !== 'completed').length;
+        const assignedTasks = requests.filter(r => r.assignedTo === currentUser.uid && r.status !== 'completed').length;
         historicalBehavior = `User is assigned to ${assignedTasks} open task(s).`;
       }
 

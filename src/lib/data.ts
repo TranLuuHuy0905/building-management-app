@@ -1,7 +1,7 @@
-import type { Notification, Request, Bill } from './types';
+import type { Notification, Request, Bill, User } from './types';
 
-// Mock users - This will now be populated at runtime after admin registration
-export const users: { [key: string]: { role: 'resident' | 'admin' | 'technician', name: string, apartment?: string, id?: string } } = {};
+// Mock users data is no longer needed as it's managed by Firebase.
+export const users: User[] = [];
 
 export const notifications: Notification[] = [
   {

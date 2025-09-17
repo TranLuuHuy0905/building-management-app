@@ -2,18 +2,15 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { users } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast"
 
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (phone: string, otp: string) => void;
+  registerAdmin: (name: string, phone: string, otp: string) => void;
   logout: () => void;
   loading: boolean;
-  isCheckingUser: boolean;
-  checkUser: (phone: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,7 +18,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isCheckingUser, setIsCheckingUser] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -38,31 +34,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const checkUser = (phone: string): boolean => {
-    setIsCheckingUser(true);
-    const userExists = !!users[phone];
-    if (!userExists) {
-        toast({
-            variant: "destructive",
-            title: "Lỗi",
-            description: "Số điện thoại không tồn tại trong hệ thống",
-        })
-    }
-    setIsCheckingUser(false);
-    return userExists;
-  }
+  const registerAdmin = useCallback((name: string, phone: string, otp: string) => {
+    // In a real app, you would verify the OTP with a backend service.
+    // For this demo, we'll use a static OTP.
+    if (otp === '123456') {
+      const newAdmin: User = {
+        name,
+        phone,
+        role: 'admin',
+        id: `admin_${Date.now()}`
+      };
+      setCurrentUser(newAdmin);
+      localStorage.setItem('currentUser', JSON.stringify(newAdmin));
+      // In a real app, you would save the new user to your database.
+      
+      // We'll also update the mock users object for this session,
+      // so other features can see this new user.
+      // This part is for demonstration purposes.
+      try {
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
+        users[phone] = { role: 'admin', name: newAdmin.name, id: newAdmin.id };
+        localStorage.setItem('users', JSON.stringify(users));
+      } catch (e) {
+        // ignore
+      }
 
-  const login = useCallback((phone: string, otp: string) => {
-    if (otp === '123456' && users[phone]) {
-      const user = { phone, ...users[phone] };
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+
       router.push('/home');
+      toast({
+        title: "Thành công!",
+        description: "Tài khoản quản lý của bạn đã được tạo.",
+      })
     } else {
         toast({
             variant: "destructive",
             title: "Lỗi",
-            description: "Mã OTP không chính xác",
+            description: "Mã OTP không chính xác.",
         })
     }
   }, [router, toast]);
@@ -70,11 +77,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(() => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    // We could also clear the session's user data
+    // localStorage.removeItem('users');
     router.push('/login');
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout, loading, isCheckingUser, checkUser }}>
+    <AuthContext.Provider value={{ currentUser, registerAdmin, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

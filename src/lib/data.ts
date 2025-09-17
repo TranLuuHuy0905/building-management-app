@@ -1,11 +1,7 @@
 import type { Notification, Request, Bill } from './types';
 
-// Mock users
-export const users: { [key: string]: { role: 'resident' | 'admin' | 'technician', name: string, apartment?: string, id?: string } } = {
-  '0901234567': { role: 'resident', apartment: 'A1204', name: 'Nguyễn Văn An' },
-  '0901234568': { role: 'admin', name: 'Trần Thị Bình' },
-  '0901234569': { role: 'technician', name: 'Lê Văn Cường', id: 'tech1' }
-};
+// Mock users - This will now be populated at runtime after admin registration
+export const users: { [key: string]: { role: 'resident' | 'admin' | 'technician', name: string, apartment?: string, id?: string } } = {};
 
 export const notifications: Notification[] = [
   {

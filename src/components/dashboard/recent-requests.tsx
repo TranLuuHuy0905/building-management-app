@@ -5,10 +5,20 @@ import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Request } from '@/lib/types';
 import { getRequests } from '@/lib/services/request-service';
-import { RequestItem } from '@/components/requests/request-item';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Wrench, Loader2 } from 'lucide-react';
+import { Badge } from '../ui/badge';
+
+
+const getStatusBadge = (status: Request['status']) => {
+    switch (status) {
+        case 'pending': return <Badge variant="outline">Chờ xử lý</Badge>;
+        case 'processing': return <Badge variant="secondary">Đang xử lý</Badge>;
+        case 'completed': return <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80">Hoàn thành</Badge>;
+        default: return <Badge variant="outline">{status}</Badge>;
+    }
+};
 
 export function RecentRequests() {
   const { currentUser } = useAuth();
@@ -58,11 +68,13 @@ export function RecentRequests() {
         ) : requests.length > 0 ? (
             <div className="space-y-4">
             {requests.map((request) => (
-                // Using a simplified view for the homepage
                  <div key={request.id} className="flex items-start space-x-4 p-3 bg-secondary/50 rounded-lg">
                     <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800">{request.title}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">Căn hộ: {request.apartment} - Trạng thái: {request.status}</p>
+                        <div className="flex justify-between items-start">
+                            <h4 className="font-semibold text-gray-800 pr-4">{request.title}</h4>
+                            {getStatusBadge(request.status)}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">Căn hộ: {request.apartment}</p>
                         <p className="text-xs text-muted-foreground/80 mt-2">{new Date(request.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
                 </div>
@@ -75,4 +87,3 @@ export function RecentRequests() {
     </Card>
   );
 }
-

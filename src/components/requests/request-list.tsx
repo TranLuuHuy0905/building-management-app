@@ -34,7 +34,7 @@ export function RequestList() {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleCreateRequest = async () => {
+  const handleCreateRequest = () => {
     // This is a placeholder for opening a "Create Request" dialog.
     // In a real app, you would open a dialog here to collect request details.
     console.log("Placeholder: Opening create request dialog.");

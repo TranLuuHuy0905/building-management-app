@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
     return () => unsubscribe();
-  }, []);
+  }, [handleUserAuth]);
 
   const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
     setLoading(true);
@@ -62,6 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         role: 'admin',
         buildingName,
+        phone: '',
       };
 
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);

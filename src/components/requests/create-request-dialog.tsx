@@ -34,10 +34,13 @@ export function CreateRequestDialog({ isOpen, onOpenChange, onFormSubmit }: Crea
     setType('other');
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await onFormSubmit({ title, description, type });
+    // Call the parent form submission handler
+    onFormSubmit({ title, description, type });
+    // The parent component is now responsible for closing the dialog and showing toast
+    // This component only manages its internal state.
     setIsSubmitting(false);
     resetForm();
   };

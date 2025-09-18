@@ -7,7 +7,7 @@ import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase
 import { auth, db } from '@/lib/firebase';
 import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { checkApartmentUniqueness } from '@/lib/services/user-service';
+import { checkApartmentExists } from '@/lib/services/user-service';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -87,18 +87,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    // Check for uniqueness before attempting to create the user
-    const uniquenessCheck = await checkApartmentUniqueness(currentUser.buildingName, apartment);
-    if (!uniquenessCheck.isUnique) {
+    const apartmentExists = await checkApartmentExists(currentUser.buildingName, apartment);
+    if (apartmentExists) {
         toast({
             variant: "destructive",
             title: "Thông tin bị trùng",
-            description: uniquenessCheck.message,
+            description: "Căn hộ đó đã tồn tại.",
         });
         return false;
     }
 
     try {
+        // This is a workaround for createUserWithEmailAndPassword signing the new user in.
+        // A more robust solution for multi-user management is using Cloud Functions (Firebase Admin SDK).
+        // Since we don't have Admin SDK, we'll have to re-login the admin after creating a user.
+        const adminEmail = currentUser.email;
+        const adminPassword = prompt("Để tiếp tục, vui lòng nhập lại mật khẩu của bạn:");
+
+        if (!adminPassword) {
+             toast({ variant: "destructive", title: "Hành động đã bị hủy", description: "Yêu cầu mật khẩu để tiếp tục." });
+             return false;
+        }
+        
+        // Temporarily sign out to prevent re-auth issues if any
+        await signOut(auth);
+
+        // Sign in again to confirm password is correct before proceeding
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+
+
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newResidentUser = userCredential.user;
 
@@ -116,24 +133,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: "Thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
         });
-         // Sign the admin back in immediately
-        if (auth.currentUser?.email !== currentUser.email) {
-            // This re-login is a workaround for createUserWithEmailAndPassword signing the new user in.
-            // A more robust solution for multi-user management is Cloud Functions.
-            await signInWithEmailAndPassword(auth, currentUser.email, prompt("Vui lòng nhập lại mật khẩu admin để tiếp tục") || "");
-        }
-
-
+         
+        // Sign the admin back in immediately
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        
         return true;
 
     } catch (error: any) {
         console.error("Error creating resident:", error);
         
+        let errorMessage = "Lỗi không xác định.";
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'Email đã được sử dụng.';
+        } else if(error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            errorMessage = 'Mật khẩu admin không chính xác. Không thể tạo người dùng.';
+        }
+
         toast({
             variant: "destructive",
             title: "Lỗi tạo tài khoản",
-            description: `Không thể tạo tài khoản cho ${email}: ${error.code === 'auth/email-already-in-use' ? 'Email đã được sử dụng.' : 'Lỗi không xác định.'}`,
+            description: errorMessage,
         });
+
+        // Attempt to sign admin back in even if user creation fails
+        if(currentUser.email && auth.currentUser?.email !== currentUser.email){
+             const adminPassword = prompt("Vui lòng nhập lại mật khẩu của bạn để đăng nhập lại:");
+             if(adminPassword) await signInWithEmailAndPassword(auth, currentUser.email, adminPassword);
+        }
+
         return false;
     }
 }, [currentUser, toast]);
@@ -146,8 +173,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       const adminEmail = currentUser.email;
-
-      // Re-authentication is handled by the component before calling this function.
       
       let successCount = 0;
       let failedCount = 0;

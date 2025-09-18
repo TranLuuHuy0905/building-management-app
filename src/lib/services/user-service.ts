@@ -31,18 +31,17 @@ export async function getUsers(params: { buildingName: string }): Promise<User[]
 }
 
 
-export async function checkApartmentUniqueness(
+export async function checkApartmentExists(
     buildingName: string, 
     apartment: string
-): Promise<{ isUnique: boolean, message: string }> {
+): Promise<boolean> {
     const usersRef = collection(db, 'users');
-
-    // Check for apartment uniqueness
-    const apartmentQuery = query(usersRef, where('buildingName', '==', buildingName), where('apartment', '==', apartment), limit(1));
+    const apartmentQuery = query(
+        usersRef, 
+        where('buildingName', '==', buildingName), 
+        where('apartment', '==', apartment), 
+        limit(1)
+    );
     const apartmentSnapshot = await getDocs(apartmentQuery);
-    if (!apartmentSnapshot.empty) {
-        return { isUnique: false, message: `Số căn hộ ${apartment} đã tồn tại trong tòa nhà này.` };
-    }
-
-    return { isUnique: true, message: '' };
+    return !apartmentSnapshot.empty;
 }

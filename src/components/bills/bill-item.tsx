@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Bill } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useState } from 'react';
 
 const getStatusBadge = (status: Bill['status']) => {
     switch (status) {
@@ -18,6 +19,15 @@ const getStatusBadge = (status: Bill['status']) => {
 
 export function BillItem({ bill }: { bill: Bill }) {
     const { currentUser } = useAuth();
+    const [displayDate, setDisplayDate] = useState('');
+
+    useEffect(() => {
+        if (bill.status === 'paid' && bill.paidDate) {
+            setDisplayDate(`Đã thanh toán: ${bill.paidDate}`);
+        } else {
+            setDisplayDate(`Hạn thanh toán: ${bill.dueDate}`);
+        }
+    }, [bill.status, bill.paidDate, bill.dueDate]);
 
     return (
         <Card className="shadow-sm">
@@ -42,11 +52,7 @@ export function BillItem({ bill }: { bill: Bill }) {
                     <div className="flex justify-between font-semibold text-base"><span className="text-foreground">Tổng cộng:</span><span className="text-primary">{formatCurrency(bill.total)}</span></div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                    {bill.status === 'paid' ? (
-                        <p>Đã thanh toán: {bill.paidDate}</p>
-                    ) : (
-                        <p>Hạn thanh toán: {bill.dueDate}</p>
-                    )}
+                    {displayDate && <p>{displayDate}</p>}
                 </div>
             </CardContent>
             {bill.status === 'unpaid' && currentUser?.role === 'resident' && (

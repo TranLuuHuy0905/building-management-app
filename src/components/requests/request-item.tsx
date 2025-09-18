@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { Request } from '@/lib/types';
 import { Star } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useState } from 'react';
 
 const getStatusBadge = (status: Request['status']) => {
     switch (status) {
@@ -17,6 +18,15 @@ const getStatusBadge = (status: Request['status']) => {
 
 export function RequestItem({ request }: { request: Request }) {
     const { currentUser } = useAuth();
+    const [createdAt, setCreatedAt] = useState<string | null>(null);
+    const [completedAt, setCompletedAt] = useState<string | null>(null);
+
+    useEffect(() => {
+        setCreatedAt(request.createdAt);
+        if (request.completedAt) {
+            setCompletedAt(request.completedAt);
+        }
+    }, [request.createdAt, request.completedAt]);
 
     return (
         <Card className="shadow-sm">
@@ -28,8 +38,8 @@ export function RequestItem({ request }: { request: Request }) {
                 <p className="text-muted-foreground mb-4">{request.description}</p>
                 <div className="text-sm text-muted-foreground space-y-1">
                     <p>Căn hộ: <span className="font-medium text-foreground">{request.apartment}</span></p>
-                    <p>Ngày tạo: <span className="font-medium text-foreground">{request.createdAt}</span></p>
-                    {request.completedAt && <p>Hoàn thành: <span className="font-medium text-foreground">{request.completedAt}</span></p>}
+                    {createdAt && <p>Ngày tạo: <span className="font-medium text-foreground">{createdAt}</span></p>}
+                    {completedAt && <p>Hoàn thành: <span className="font-medium text-foreground">{completedAt}</span></p>}
                 </div>
             </CardContent>
             <CardFooter className="flex-col items-stretch gap-4">

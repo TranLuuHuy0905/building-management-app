@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Notification } from '@/lib/types';
 import { AlertCircle, Bell, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 const getTypeIcon = (type: Notification['type']) => {
   switch (type) {
@@ -23,6 +24,12 @@ const getTypeBadge = (type: Notification['type']) => {
 }
 
 export function NotificationItem({ notification, isCompact = false }: { notification: Notification, isCompact?: boolean }) {
+  const [date, setDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDate(notification.date);
+  }, [notification.date]);
+
   if (isCompact) {
     return (
         <div className="flex items-start space-x-4 p-3 bg-secondary/50 rounded-lg">
@@ -30,7 +37,7 @@ export function NotificationItem({ notification, isCompact = false }: { notifica
             <div className="flex-1">
                 <h4 className="font-semibold text-gray-800">{notification.title}</h4>
                 <p className="text-sm text-muted-foreground mt-1">{notification.content}</p>
-                <p className="text-xs text-muted-foreground/80 mt-2">{notification.date}</p>
+                {date && <p className="text-xs text-muted-foreground/80 mt-2">{date}</p>}
             </div>
         </div>
     );
@@ -50,7 +57,7 @@ export function NotificationItem({ notification, isCompact = false }: { notifica
             <p className="text-muted-foreground">{notification.content}</p>
         </CardContent>
         <CardFooter className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">{notification.date}</span>
+            {date && <span className="text-muted-foreground">{date}</span>}
             {getTypeBadge(notification.type)}
         </CardFooter>
     </Card>

@@ -6,11 +6,24 @@ import { app as firebaseApp } from '@/lib/firebaseClient';
 import { useAuth } from '@/contexts/auth-context';
 import { saveUserFcmToken } from '@/lib/services/notification-service';
 
+// Hướng dẫn LẤY VAPID KEY:
+// 1. Mở Firebase Console > Project Settings (Cài đặt dự án).
+// 2. Chuyển đến tab "Cloud Messaging".
+// 3. Kéo xuống phần "Web configuration" (Cấu hình web).
+// 4. Trong mục "Web Push certificates", sao chép giá trị "Key pair".
+// 5. Dán giá trị đó vào tệp .env.local với tên biến NEXT_PUBLIC_FCM_VAPID_KEY.
+const VAPID_KEY = process.env.NEXT_PUBLIC_FCM_VAPID_KEY;
+
 export function useFcmRegistration() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !currentUser) {
+      return;
+    }
+    
+    if (!VAPID_KEY) {
+      console.error("Firebase VAPID key is missing. Push notifications will not work.");
       return;
     }
 
@@ -26,11 +39,10 @@ export function useFcmRegistration() {
 
           // 2. Get token
           const currentToken = await getToken(messaging, {
-            vapidKey: 'YOUR_VAPID_KEY', // IMPORTANT: Replace with your VAPID key
+            vapidKey: VAPID_KEY,
           });
 
           if (currentToken) {
-            console.log('FCM Token:', currentToken);
             // 3. Check if token already exists for the user to avoid unnecessary writes
             const userTokens = currentUser.fcmTokens || [];
             if (!userTokens.includes(currentToken)) {

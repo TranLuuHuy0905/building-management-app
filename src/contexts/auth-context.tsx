@@ -96,6 +96,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminEmail = currentUser.email;
     const buildingName = currentUser.buildingName;
 
+    /*
+    // Temporarily disable duplicate check
     if(role === 'resident' && apartment) {
         const apartmentExists = await checkApartmentExists(buildingName, apartment);
         if (apartmentExists) {
@@ -107,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return false;
         }
     }
+    */
 
 
     try {

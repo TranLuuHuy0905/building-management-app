@@ -5,7 +5,6 @@ import type { Notification, User } from '@/lib/types';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { auth } from '@/lib/firebaseClient';
 import { getAuth } from 'firebase-admin/auth';
 
 /**
@@ -46,7 +45,7 @@ export async function saveUserFcmToken(token: string): Promise<void> {
  * @param notificationData The notification data, excluding the ID.
  * @returns An object with the count of successful and failed deliveries.
  */
-export async function createAndSendNotification(notificationData: Omit<Notification, 'id'>): Promise<{ success: number; failed: number; newNotificationId: string | null }> {
+export async function createAndSendNotification(notificationData: Omit<Notification, 'id' | 'date'>): Promise<{ success: number; failed: number; newNotificationId: string | null }> {
     try {
         // Step 1: Save the notification to Firestore.
         const notificationRef = await firestoreAdmin.collection('notifications').add({
@@ -57,7 +56,7 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
 
         // Step 2: Get all FCM tokens for the target users.
         const usersRef = firestoreAdmin.collection('users');
-        let usersQuery = usersRef.where('buildingName', '==', notificationData.buildingName);
+        let usersQuery: FirebaseFirestore.Query = usersRef.where('buildingName', '==', notificationData.buildingName);
         
         if (notificationData.targetType !== 'all') {
             usersQuery = usersQuery.where('role', '==', notificationData.targetType);

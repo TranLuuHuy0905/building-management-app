@@ -47,52 +47,56 @@ export function UserList() {
       setLoading(false);
   };
   
-  useEffect(() => {
-    // Use onAuthStateChanged for a reliable way to get the current user
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // User is signed in, now fetch their full profile from Firestore
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const fullUser = userDocSnap.data() as User;
-          if (fullUser.buildingName) {
-            // We have the building name, now fetch the residents
-            await fetchUsers(fullUser.buildingName);
-          } else {
-             // Admin might not have buildingName, handle this case
-            setLoading(false);
-          }
-        } else {
-          // User doc doesn't exist, shouldn't happen in normal flow
-          setLoading(false);
-        }
-      } else {
-        // User is signed out
-        setLoading(false);
-      }
-    });
-
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, []); // Empty dependency array means this runs once on mount
-
-
   const handleUserAdded = async () => {
-    // Re-fetch users after adding
     const firebaseUser = auth.currentUser;
     if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-            const fullUser = userDocSnap.data() as User;
-            if (fullUser.buildingName) {
-                await fetchUsers(fullUser.buildingName);
+        try {
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const fullUser = userDocSnap.data() as User;
+                if (fullUser.buildingName) {
+                    await fetchUsers(fullUser.buildingName);
+                }
             }
+        } catch (error) {
+            console.error("Error re-fetching users:", error);
+            setLoading(false);
         }
     }
   }
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        try {
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const fullUser = userDocSnap.data() as User;
+            if (fullUser.buildingName) {
+              await fetchUsers(fullUser.buildingName);
+            } else {
+              setLoading(false);
+              setUsers([]);
+            }
+          } else {
+            setLoading(false);
+            setUsers([]);
+          }
+        } catch (error) {
+          console.error("Error fetching user document:", error);
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+        setUsers([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+
   
   return (
     <div>

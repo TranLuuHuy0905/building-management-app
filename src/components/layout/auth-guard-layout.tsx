@@ -1,11 +1,12 @@
 'use client';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Loader2 } from 'lucide-react';
 import type { User } from '@/lib/types';
+import { useIsClient } from '@/hooks/use-is-client';
 
 interface AuthGuardLayoutProps {
   children: React.ReactNode;
@@ -15,11 +16,7 @@ interface AuthGuardLayoutProps {
 export function AuthGuardLayout({ children, allowedRoles }: AuthGuardLayoutProps) {
   const { currentUser, loading } = useAuth();
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useIsClient();
 
   useEffect(() => {
     if (!isClient || loading) {
@@ -32,10 +29,12 @@ export function AuthGuardLayout({ children, allowedRoles }: AuthGuardLayoutProps
     }
 
     if (!allowedRoles.includes(currentUser.role)) {
+      // Redirect to the user's correct home page if they land on a wrong page
       router.replace(`/${currentUser.role}/home`);
     }
   }, [currentUser, loading, router, allowedRoles, isClient]);
 
+  // Show loading state on the server, or on the client while auth is loading or if the user is not yet available/authorized
   const showLoading = !isClient || loading || !currentUser || !allowedRoles.includes(currentUser.role);
 
   if (showLoading) {

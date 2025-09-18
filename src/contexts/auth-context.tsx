@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
     return () => unsubscribe();
-  }, [handleUserAuth]);
+  }, []);
 
   const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
     setLoading(true);
@@ -117,6 +117,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: "Lỗi tạo tài khoản",
             description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng kiểm tra lại email.",
         });
+        // IMPORTANT: Sign the admin back in if user creation fails
+        try {
+            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        } catch (reauthError) {
+             console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
+             router.push('/login');
+        }
         return false;
     }
 

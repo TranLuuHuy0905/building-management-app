@@ -78,16 +78,23 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
 }
 
 /**
- * Retrieves notifications using the Admin SDK.
+ * Retrieves notifications using the Admin SDK, optimized for user roles.
  * @param params Parameters for filtering notifications.
  * @returns A promise that resolves to an array of notifications.
  */
-export async function getNotifications(params: { buildingName: string; take?: number }): Promise<Notification[]> {
+export async function getNotifications(params: { buildingName: string; role?: User['role']; take?: number }): Promise<Notification[]> {
     try {
         const notificationsRef = firestoreAdmin.collection('notifications');
-        let query = notificationsRef
-            .where('buildingName', '==', params.buildingName)
-            .orderBy('date', 'desc');
+        let query: FirebaseFirestore.Query = notificationsRef.where('buildingName', '==', params.buildingName);
+        
+        // Optimize query by filtering on the server-side
+        if (params.role && params.role !== 'admin') {
+            // Firestore's 'in' operator is perfect for "OR" conditions on the same field.
+            // A user should see notifications for 'all' OR for their specific 'role'.
+            query = query.where('targetType', 'in', ['all', params.role]);
+        }
+
+        query = query.orderBy('date', 'desc');
 
         if (params.take) {
             query = query.limit(params.take);

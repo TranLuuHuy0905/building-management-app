@@ -25,17 +25,14 @@ export function NotificationList() {
       return;
     }
     setLoading(true);
-    const fetchedNotifications = await getNotifications({ buildingName: currentUser.buildingName });
-    
-    // Filter notifications based on targetType and user role
-    const filtered = fetchedNotifications.filter(n => {
-      if (currentUser.role === 'admin') return true;
-      if (n.targetType === 'all') return true;
-      if (n.targetType === currentUser.role) return true;
-      return false;
+    // Pass the user's role to the service for server-side filtering.
+    const fetchedNotifications = await getNotifications({ 
+        buildingName: currentUser.buildingName,
+        role: currentUser.role 
     });
-
-    setNotifications(filtered);
+    
+    // No more client-side filtering needed. The server does the work.
+    setNotifications(fetchedNotifications);
     setLoading(false);
   }, [currentUser?.buildingName, currentUser?.role]);
 

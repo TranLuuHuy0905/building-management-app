@@ -128,20 +128,20 @@ export function UserList() {
   // --- Re-authentication Flow ---
   const handleReauthSuccess = async (password: string) => {
     setIsReauthDialogOpen(false);
-    setLoading(true);
-    let success = false;
     
     if (reauthAction === 'create' && pendingUserData) {
-      success = await createResident(pendingUserData, password);
+      setLoading(true);
+      const success = await createResident(pendingUserData, password);
+      if(success){
+        await fetchUsers();
+      }
     } else if (reauthAction === 'delete' && selectedUser) {
-      success = await deleteResident(selectedUser, password);
+      setLoading(true);
+      const success = await deleteResident(selectedUser, password);
       if(success) {
         toast({ title: "Thành công", description: `Đã xóa tài khoản ${selectedUser.name}.` });
+        await fetchUsers();
       }
-    }
-    
-    if(success){
-      await fetchUsers();
     }
     
     // Reset states

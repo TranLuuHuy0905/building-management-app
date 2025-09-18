@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             buildingName: buildingName,
         };
         await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
-
+        
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
         if (auth.currentUser) {
@@ -127,10 +127,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         toast({
-            title: "Thành công!",
+            title: "Tạo tài khoản thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name}.`,
         });
-
         return true;
     } catch (error: any) {
         console.error("Error at createResident:", error);
@@ -140,6 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng thử lại.",
         });
         
+        // Always try to sign the admin back in, even after a failure
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
              if (auth.currentUser) {
@@ -147,11 +147,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         } catch (reauthError) {
              console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
+             // If re-login fails, the session is lost, force a full page reload to login.
              router.push('/login');
         }
         return false;
     }
-
 }, [currentUser, toast, router, handleUserAuth]);
 
 

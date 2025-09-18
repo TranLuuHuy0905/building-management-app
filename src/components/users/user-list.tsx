@@ -66,7 +66,10 @@ export function UserList() {
     setLoading(true);
     const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
     
-    setUsers(fetchedUsers);
+    // Filter for residents on the client side
+    const residentUsers = fetchedUsers.filter(user => user.role === 'resident');
+    
+    setUsers(residentUsers);
     setLoading(false);
   }, [currentUser?.buildingName]);
 
@@ -126,18 +129,22 @@ export function UserList() {
   const handleReauthSuccess = async (password: string) => {
     setIsReauthDialogOpen(false);
     setLoading(true);
+    let success = false;
     
     if (reauthAction === 'create' && pendingUserData) {
-      const success = await createResident(pendingUserData, password);
+      success = await createResident(pendingUserData, password);
       if (success) {
-        await fetchUsers();
+        toast({ title: "Thành công", description: "Đã tạo tài khoản cư dân mới." });
       }
     } else if (reauthAction === 'delete' && selectedUser) {
-      const success = await deleteResident(selectedUser, password);
+      success = await deleteResident(selectedUser, password);
       if(success) {
         toast({ title: "Thành công", description: `Đã xóa tài khoản ${selectedUser.name}.` });
-        await fetchUsers();
       }
+    }
+    
+    if(success){
+      await fetchUsers();
     }
     
     // Reset states

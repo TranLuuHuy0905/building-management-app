@@ -20,10 +20,11 @@ function docToUser(doc: DocumentData): User {
 export async function getUsers(params: { buildingName: string }): Promise<User[]> {
     try {
         const usersRef = collection(db, 'users');
+        // Query only by buildingName to avoid composite index requirement.
+        // Filtering by role will be done on the client side.
         const q = query(
             usersRef, 
-            where('buildingName', '==', params.buildingName),
-            where('role', '==', 'resident')
+            where('buildingName', '==', params.buildingName)
         );
         
         const querySnapshot = await getDocs(q);

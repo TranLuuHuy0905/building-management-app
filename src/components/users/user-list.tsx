@@ -17,6 +17,10 @@ import { Badge } from '@/components/ui/badge';
 import { AddUserDialog } from './add-user-dialog';
 import { BulkAddUserDialog } from './bulk-add-user-dialog';
 import { Card, CardContent } from '../ui/card';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const roleBadges: { [key in User['role']]: React.ReactNode } = {
     'admin': <Badge variant="destructive">Quản lý</Badge>,
@@ -25,19 +29,15 @@ const roleBadges: { [key in User['role']]: React.ReactNode } = {
 }
 
 export function UserList() {
-  const { currentUser } = useAuth();
+  const { currentUser } = useAuth(); // Keep for role check on UI
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
 
-  const fetchUsers = async () => {
-      if (!currentUser || !currentUser.buildingName) {
-        setLoading(false);
-        return;
-      };
+  const fetchUsers = async (buildingName: string) => {
       setLoading(true);
-      const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
+      const fetchedUsers = await getUsers({ buildingName });
       
       const residentUsers = fetchedUsers
         .filter(user => user.role === 'resident')
@@ -46,13 +46,52 @@ export function UserList() {
       setUsers(residentUsers);
       setLoading(false);
   };
-
+  
   useEffect(() => {
-    fetchUsers();
-  }, [currentUser]);
+    // Use onAuthStateChanged for a reliable way to get the current user
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in, now fetch their full profile from Firestore
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
 
-  const handleUserAdded = () => {
-    fetchUsers(); 
+        if (userDocSnap.exists()) {
+          const fullUser = userDocSnap.data() as User;
+          if (fullUser.buildingName) {
+            // We have the building name, now fetch the residents
+            await fetchUsers(fullUser.buildingName);
+          } else {
+             // Admin might not have buildingName, handle this case
+            setLoading(false);
+          }
+        } else {
+          // User doc doesn't exist, shouldn't happen in normal flow
+          setLoading(false);
+        }
+      } else {
+        // User is signed out
+        setLoading(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []); // Empty dependency array means this runs once on mount
+
+
+  const handleUserAdded = async () => {
+    // Re-fetch users after adding
+    const firebaseUser = auth.currentUser;
+    if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const fullUser = userDocSnap.data() as User;
+            if (fullUser.buildingName) {
+                await fetchUsers(fullUser.buildingName);
+            }
+        }
+    }
   }
   
   return (

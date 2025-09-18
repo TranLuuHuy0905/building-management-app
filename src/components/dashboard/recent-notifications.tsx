@@ -3,51 +3,49 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Request } from '@/lib/types';
-import { getRequests } from '@/lib/services/request-service';
-import { RequestItem } from '@/components/requests/request-item';
+import type { Notification } from '@/lib/types';
+import { getNotifications } from '@/lib/services/notification-service';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Wrench, Loader2 } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
+import { NotificationItem } from '../notifications/notification-item';
 
-export function RecentRequests() {
+
+export function RecentNotifications() {
   const { currentUser } = useAuth();
-  const [requests, setRequests] = useState<Request[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser?.buildingName) return;
 
-    const fetchRequests = async () => {
+    const fetchNotifications = async () => {
         setLoading(true);
-        // Fetch recent requests instead of notifications
-        const fetchedRequests = await getRequests({ buildingName: currentUser.buildingName });
-        // Sort by creation date descending and take the first 3
-        const recent = fetchedRequests
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 3);
-        setRequests(recent);
+        const fetchedNotifications = await getNotifications({ 
+            buildingName: currentUser.buildingName,
+            role: currentUser.role,
+            take: 3
+        });
+        
+        const sorted = fetchedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setNotifications(sorted);
         setLoading(false);
     };
-    fetchRequests();
+    fetchNotifications();
   }, [currentUser]);
 
-  const getRequestPageHref = () => {
-      if (!currentUser) return '/';
-      return `/${currentUser.role}/requests`;
-  }
 
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-lg">
-                <Wrench className="w-5 h-5 text-primary" />
+            <div className="p-2 bg-accent/20 rounded-lg">
+                <Bell className="w-5 h-5 text-accent" />
             </div>
-            <CardTitle className="text-lg font-headline">Phản ánh gần đây</CardTitle>
+            <CardTitle className="text-lg font-headline">Thông báo gần đây</CardTitle>
         </div>
         <Button asChild variant="ghost" size="sm">
-            <Link href={getRequestPageHref()}>Xem tất cả</Link>
+            <Link href="/notifications">Xem tất cả</Link>
         </Button>
       </CardHeader>
       <CardContent>
@@ -55,24 +53,16 @@ export function RecentRequests() {
             <div className="flex items-center justify-center h-24">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-        ) : requests.length > 0 ? (
+        ) : notifications.length > 0 ? (
             <div className="space-y-4">
-            {requests.map((request) => (
-                // Using a simplified view for the homepage
-                 <div key={request.id} className="flex items-start space-x-4 p-3 bg-secondary/50 rounded-lg">
-                    <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800">{request.title}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">Căn hộ: {request.apartment} - Trạng thái: {request.status}</p>
-                        <p className="text-xs text-muted-foreground/80 mt-2">{new Date(request.createdAt).toLocaleString('vi-VN')}</p>
-                    </div>
-                </div>
+            {notifications.map((notification) => (
+                <NotificationItem key={notification.id} notification={notification} />
             ))}
             </div>
         ) : (
-            <p className="text-center text-muted-foreground">Không có phản ánh nào gần đây.</p>
+            <p className="text-center text-muted-foreground">Không có thông báo nào gần đây.</p>
         )}
       </CardContent>
     </Card>
   );
 }
-

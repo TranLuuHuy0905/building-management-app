@@ -3,6 +3,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, DocumentData, addDoc } from 'firebase/firestore';
 import type { Request } from '@/lib/types';
+import { sendRequestNotification } from './notification-service';
 
 function docToRequest(doc: DocumentData): Request {
     const data = doc.data();
@@ -49,6 +50,10 @@ export async function createRequest(requestData: Omit<Request, 'id'>): Promise<s
     try {
         const requestsRef = collection(db, 'requests');
         const docRef = await addDoc(requestsRef, requestData);
+
+        // After creating the request, send a notification to admins and technicians
+        await sendRequestNotification(requestData);
+
         return docRef.id;
     } catch (error) {
         console.error("Error creating request: ", error);

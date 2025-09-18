@@ -1,7 +1,7 @@
 'use server';
 
 import { firestoreAdmin, messagingAdmin } from '@/lib/firebaseAdmin';
-import type { Notification, User } from '@/lib/types';
+import type { Notification, Request, User } from '@/lib/types';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -120,6 +120,8 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         
         console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
         revalidatePath('/notifications');
+        revalidatePath('/admin/home');
+        revalidatePath('/technician/home');
         return { success: response.successCount, failed: response.failureCount, newNotificationId };
 
     } catch (error) {
@@ -127,6 +129,82 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         return { success: 0, failed: 0, newNotificationId: null };
     }
 }
+
+/**
+ * Specifically sends a notification to admins and technicians when a new request is created.
+ * @param request The newly created request object.
+ */
+export async function sendRequestNotification(request: Omit<Request, 'id'>): Promise<void> {
+    const notificationData: Omit<Notification, 'id' | 'date'> = {
+        title: `Phản ánh mới: ${request.title}`,
+        content: `Cư dân tại căn hộ ${request.apartment} đã gửi một phản ánh mới.`,
+        type: 'warning',
+        targetType: 'all', // The logic below will handle targeting admins/techs
+        buildingName: request.buildingName,
+    };
+    
+    try {
+        const notificationRef = await firestoreAdmin.collection('notifications').add({
+            ...notificationData,
+            // We set a specific targetType for later filtering, even though we send to multiple roles.
+            targetType: 'admin', // Or a new type like 'staff' if needed
+            date: FieldValue.serverTimestamp(),
+        });
+
+        // Also add a copy for technicians
+         await firestoreAdmin.collection('notifications').add({
+            ...notificationData,
+            targetType: 'technician',
+            date: FieldValue.serverTimestamp(),
+        });
+
+        const usersRef = firestoreAdmin.collection('users');
+        const usersQuery = usersRef
+            .where('buildingName', '==', request.buildingName)
+            .where('role', 'in', ['admin', 'technician']);
+
+        const usersSnapshot = await usersQuery.get();
+        if (usersSnapshot.empty) {
+            console.log("No admins or technicians found to notify.");
+            return;
+        }
+
+        let tokens: string[] = [];
+        usersSnapshot.forEach(doc => {
+            const user = doc.data() as User;
+            if (user.fcmTokens && Array.isArray(user.fcmTokens)) {
+                tokens.push(...user.fcmTokens);
+            }
+        });
+
+        tokens = [...new Set(tokens)];
+
+        if (tokens.length > 0) {
+            const message = {
+                notification: {
+                    title: notificationData.title,
+                    body: notificationData.content,
+                },
+                tokens: tokens,
+            };
+            const response = await messagingAdmin.sendEachForMulticast(message);
+            console.log(`Request notification sent: ${response.successCount} success, ${response.failureCount} failed.`);
+             if (response.failureCount > 0) {
+                const tokensToDelete = response.responses
+                    .map((resp, idx) => !resp.success ? tokens[idx] : null)
+                    .filter((token): token is string => token !== null);
+                await cleanupStaleTokens(tokensToDelete);
+            }
+        }
+        revalidatePath('/notifications');
+        revalidatePath('/admin/home');
+        revalidatePath('/technician/home');
+
+    } catch (error) {
+        console.error("Error sending request notification: ", error);
+    }
+}
+
 
 /**
  * Finds users with stale tokens and removes them from their fcmTokens array.

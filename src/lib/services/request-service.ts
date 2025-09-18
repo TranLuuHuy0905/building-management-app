@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData, addDoc } from 'firebase/firestore';
 import type { Request } from '@/lib/types';
 
 function docToRequest(doc: DocumentData): Request {
@@ -37,11 +37,21 @@ export async function getRequests(params: { buildingName: string; apartment?: st
             q = query(q, where('status', '==', params.status));
         }
 
-
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => docToRequest(doc));
     } catch (error) {
         console.error("Error fetching requests: ", error);
         return [];
+    }
+}
+
+export async function createRequest(requestData: Omit<Request, 'id'>): Promise<string | null> {
+    try {
+        const requestsRef = collection(db, 'requests');
+        const docRef = await addDoc(requestsRef, requestData);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error creating request: ", error);
+        return null;
     }
 }

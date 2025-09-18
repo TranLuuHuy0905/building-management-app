@@ -25,10 +25,10 @@ export interface Request {
   description: string;
   apartment: string;
   status: 'pending' | 'processing' | 'completed';
-  createdBy: 'resident' | 'admin';
-  assignedTo: string;
-  createdAt: string;
-  completedAt?: string;
+  createdBy: string; // User's UID
+  assignedTo: string; // Technician's UID
+  createdAt: string; // ISO 8601 date string
+  completedAt?: string; // ISO 8601 date string
   rating?: number | null;
   buildingName: string;
 }

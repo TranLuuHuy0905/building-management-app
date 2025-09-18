@@ -7,7 +7,6 @@ import { RequestItem } from './request-item';
 import type { Request } from '@/lib/types';
 import { getRequests } from '@/lib/services/request-service';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createNotification } from '@/lib/services/notification-service';
 
 export function RequestList() {
   const { currentUser } = useAuth();
@@ -37,31 +36,8 @@ export function RequestList() {
 
   const handleCreateRequest = async () => {
     // This is a placeholder for opening a "Create Request" dialog.
-    // For now, we'll simulate creating a request and a notification.
-    if (!currentUser || !currentUser.buildingName) return;
-    
-    console.log("Simulating request creation...");
-    
-    // In a real app, you would get this data from a form.
-    const newRequestData = {
-      title: "Vòi nước bị rò rỉ",
-      apartment: currentUser.apartment || 'N/A'
-    };
-
-    // Simulate creating a request in DB (not implemented here)
-    
-    // Then, create a notification for the admin.
-    await createNotification({
-      title: "Phản ánh mới",
-      content: `Căn hộ ${newRequestData.apartment} đã báo cáo một sự cố mới: "${newRequestData.title}"`,
-      type: 'warning',
-      targetType: 'admin',
-      buildingName: currentUser.buildingName,
-      date: new Date().toLocaleDateString('vi-VN')
-    });
-    
-    console.log("Notification created for admin.");
-    // You would then refetch requests and potentially show a toast.
+    // In a real app, you would open a dialog here to collect request details.
+    console.log("Placeholder: Opening create request dialog.");
   };
   
   const getTitle = () => {

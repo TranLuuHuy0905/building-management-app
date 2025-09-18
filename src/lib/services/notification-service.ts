@@ -139,25 +139,28 @@ export async function sendRequestNotification(request: Omit<Request, 'id'>): Pro
         title: `Phản ánh mới: ${request.title}`,
         content: `Cư dân tại căn hộ ${request.apartment} đã gửi một phản ánh mới.`,
         type: 'warning',
-        targetType: 'all', // The logic below will handle targeting admins/techs
+        targetType: 'all', // This will be overridden below
         buildingName: request.buildingName,
     };
     
     try {
-        const notificationRef = await firestoreAdmin.collection('notifications').add({
+        const serverTimestamp = FieldValue.serverTimestamp();
+
+        // Create a notification record for admins
+        await firestoreAdmin.collection('notifications').add({
             ...notificationData,
-            // We set a specific targetType for later filtering, even though we send to multiple roles.
-            targetType: 'admin', // Or a new type like 'staff' if needed
-            date: FieldValue.serverTimestamp(),
+            targetType: 'admin',
+            date: serverTimestamp,
         });
 
-        // Also add a copy for technicians
+        // Create a separate notification record for technicians
          await firestoreAdmin.collection('notifications').add({
             ...notificationData,
             targetType: 'technician',
-            date: FieldValue.serverTimestamp(),
+            date: serverTimestamp,
         });
 
+        // Now, find all admins and technicians to send a push notification
         const usersRef = firestoreAdmin.collection('users');
         const usersQuery = usersRef
             .where('buildingName', '==', request.buildingName)

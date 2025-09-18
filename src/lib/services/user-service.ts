@@ -20,7 +20,11 @@ function docToUser(doc: DocumentData): User {
 export async function getUsers(params: { buildingName: string }): Promise<User[]> {
     try {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('buildingName', '==', params.buildingName));
+        const q = query(
+            usersRef, 
+            where('buildingName', '==', params.buildingName),
+            where('role', '==', 'resident')
+        );
         
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => docToUser(doc));

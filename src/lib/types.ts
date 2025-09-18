@@ -6,6 +6,7 @@ export interface User {
   role: 'resident' | 'admin' | 'technician';
   apartment?: string;
   buildingName: string;
+  fcmTokens?: string[];
 }
 
 export interface Notification {

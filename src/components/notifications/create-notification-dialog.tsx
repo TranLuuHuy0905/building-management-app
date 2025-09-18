@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Notification } from '@/lib/types';
-import { createNotification } from '@/lib/services/notification-service';
+import { createAndSendNotification } from '@/lib/services/notification-service';
 import { useAuth } from '@/contexts/auth-context';
 
 interface CreateNotificationDialogProps {
@@ -51,25 +51,27 @@ export function CreateNotificationDialog({ isOpen, onOpenChange, onNotificationC
     
     setIsSubmitting(true);
     
-    const notificationData: Omit<Notification, 'id'> = {
+    const notificationData: Omit<Notification, 'id' | 'date'> = {
         title,
         content,
         type,
         targetType,
         buildingName: currentUser.buildingName,
-        date: new Date().toISOString(), // Use ISO string for cross-platform consistency
     };
 
-    const newNotificationId = await createNotification(notificationData);
+    const result = await createAndSendNotification(notificationData as Omit<Notification, 'id'>);
     setIsSubmitting(false);
 
-    if (newNotificationId) {
-        toast({ title: 'Thành công', description: 'Thông báo đã được gửi đi.' });
+    if (result.newNotificationId) {
+        toast({ 
+          title: 'Gửi thành công!', 
+          description: `Đã gửi thông báo đẩy đến ${result.success} thiết bị. Thất bại: ${result.failed}.` 
+        });
         onNotificationCreated();
         onOpenChange(false);
         resetForm();
     } else {
-        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể gửi thông báo.' });
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể gửi thông báo. Vui lòng thử lại.' });
     }
   };
 

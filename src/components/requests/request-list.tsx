@@ -61,7 +61,7 @@ export function RequestList() {
     });
     
     console.log("Notification created for admin.");
-    // You would then refetch requests and potentially navigate or show a toast.
+    // You would then refetch requests and potentially show a toast.
   };
   
   const getTitle = () => {

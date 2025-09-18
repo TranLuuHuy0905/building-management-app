@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
 
-   const handleUserAuth = async (firebaseUser: FirebaseUser | null) => {
+   const handleUserAuth = useCallback(async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       if (userDoc.exists()) {
@@ -43,12 +43,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(null);
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
     return () => unsubscribe();
-  }, []);
+  }, [handleUserAuth]);
 
   const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
     setLoading(true);
@@ -182,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
       return { success: successCount, failed: failedCount };
-  }, [currentUser, toast]);
+  }, [currentUser, toast, handleUserAuth]);
 
   const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
     const user = auth.currentUser;

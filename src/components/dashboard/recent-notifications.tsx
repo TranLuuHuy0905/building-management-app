@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Notification } from '@/lib/types';
 import { getNotifications } from '@/lib/services/notification-service';
@@ -9,18 +10,21 @@ import { Button } from '@/components/ui/button';
 import { Bell, Loader2 } from 'lucide-react';
 
 export function RecentNotifications() {
+  const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentUser?.buildingName) return;
+
     const fetchNotifications = async () => {
         setLoading(true);
-        const fetchedNotifications = await getNotifications({ take: 3 });
+        const fetchedNotifications = await getNotifications({ buildingName: currentUser.buildingName, take: 3 });
         setNotifications(fetchedNotifications);
         setLoading(false);
     };
     fetchNotifications();
-  }, []);
+  }, [currentUser]);
 
   return (
     <Card className="shadow-sm">

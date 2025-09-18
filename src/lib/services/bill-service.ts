@@ -18,21 +18,22 @@ function docToBill(doc: DocumentData): Bill {
         status: data.status,
         dueDate: data.dueDate,
         paidDate: data.paidDate,
+        buildingName: data.buildingName,
     };
 }
 
-export async function getBills(params?: { apartment?: string, status?: 'paid' | 'unpaid', month?: string }): Promise<Bill[]> {
+export async function getBills(params: { buildingName: string; apartment?: string, status?: 'paid' | 'unpaid', month?: string }): Promise<Bill[]> {
     try {
         const billsRef = collection(db, 'bills');
-        let q = query(billsRef);
+        let q = query(billsRef, where('buildingName', '==', params.buildingName));
 
-        if (params?.apartment) {
+        if (params.apartment) {
             q = query(q, where('apartment', '==', params.apartment));
         }
-        if (params?.status) {
+        if (params.status) {
             q = query(q, where('status', '==', params.status));
         }
-        if (params?.month) {
+        if (params.month) {
             q = query(q, where('month', '==', params.month));
         }
 

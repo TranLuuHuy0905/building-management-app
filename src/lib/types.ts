@@ -15,6 +15,7 @@ export interface Notification {
   content: string;
   date: string;
   targetType: 'all' | 'resident' | 'admin' | 'technician';
+  buildingName: string;
 }
 
 export interface Request {
@@ -29,6 +30,7 @@ export interface Request {
   createdAt: string;
   completedAt?: string;
   rating?: number | null;
+  buildingName: string;
 }
 
 export interface Bill {
@@ -43,6 +45,7 @@ export interface Bill {
   status: 'paid' | 'unpaid';
   dueDate: string;
   paidDate?: string;
+  buildingName: string;
 }
 
 export interface BulkUserCreationData {

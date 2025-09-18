@@ -18,21 +18,22 @@ function docToRequest(doc: DocumentData): Request {
         createdAt: data.createdAt,
         completedAt: data.completedAt,
         rating: data.rating,
+        buildingName: data.buildingName,
     };
 }
 
-export async function getRequests(params?: { apartment?: string, assignedTo?: string, status?: 'pending' | 'processing' | 'completed' }): Promise<Request[]> {
+export async function getRequests(params: { buildingName: string; apartment?: string, assignedTo?: string, status?: 'pending' | 'processing' | 'completed' }): Promise<Request[]> {
     try {
         const requestsRef = collection(db, 'requests');
-        let q = query(requestsRef);
+        let q = query(requestsRef, where('buildingName', '==', params.buildingName));
 
-        if (params?.apartment) {
+        if (params.apartment) {
             q = query(q, where('apartment', '==', params.apartment));
         }
-        if (params?.assignedTo) {
+        if (params.assignedTo) {
             q = query(q, where('assignedTo', '==', params.assignedTo));
         }
-         if (params?.status) {
+         if (params.status) {
             q = query(q, where('status', '==', params.status));
         }
 

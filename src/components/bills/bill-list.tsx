@@ -13,11 +13,14 @@ export function BillList() {
     const [loading, setLoading] = useState(true);
   
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser?.buildingName) return;
 
         const fetchBills = async () => {
             setLoading(true);
-            const params = currentUser.role === 'admin' ? {} : { apartment: currentUser.apartment };
+            const params: any = { buildingName: currentUser.buildingName };
+            if (currentUser.role !== 'admin') {
+                params.apartment = currentUser.apartment;
+            }
             const fetchedBills = await getBills(params);
             setBills(fetchedBills);
             setLoading(false);

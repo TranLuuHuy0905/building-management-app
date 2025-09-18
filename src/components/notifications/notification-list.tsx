@@ -13,15 +13,16 @@ export function NotificationList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentUser?.buildingName) return;
     const fetchNotifications = async () => {
         setLoading(true);
-        const fetchedNotifications = await getNotifications();
+        const fetchedNotifications = await getNotifications({ buildingName: currentUser.buildingName });
         // TODO: Filter notifications based on targetType and user role
         setNotifications(fetchedNotifications);
         setLoading(false);
     };
     fetchNotifications();
-  }, []);
+  }, [currentUser]);
   
   return (
     <div>

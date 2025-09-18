@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, DocumentData } from 'firebase/firestore';
 import type { Notification } from '@/lib/types';
 
 function docToNotification(doc: DocumentData): Notification {
@@ -13,15 +13,16 @@ function docToNotification(doc: DocumentData): Notification {
         content: data.content,
         date: data.date,
         targetType: data.targetType,
+        buildingName: data.buildingName,
     };
 }
 
-export async function getNotifications(params?: { take?: number }): Promise<Notification[]> {
+export async function getNotifications(params: { buildingName: string; take?: number }): Promise<Notification[]> {
     try {
         const notificationsRef = collection(db, 'notifications');
-        let q = query(notificationsRef, orderBy('date', 'desc'));
+        let q = query(notificationsRef, where('buildingName', '==', params.buildingName), orderBy('date', 'desc'));
 
-        if(params?.take){
+        if(params.take){
             q = query(q, limit(params.take));
         }
 

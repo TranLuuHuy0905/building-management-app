@@ -14,15 +14,15 @@ export function RequestList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.buildingName) return;
 
     const fetchRequests = async () => {
       setLoading(true);
-      let params = {};
+      const params: any = { buildingName: currentUser.buildingName };
       if (currentUser.role === 'resident') {
-        params = { apartment: currentUser.apartment };
+        params.apartment = currentUser.apartment;
       } else if (currentUser.role === 'technician') {
-        params = { assignedTo: currentUser.uid };
+        params.assignedTo = currentUser.uid;
       }
       const fetchedRequests = await getRequests(params);
       setRequests(fetchedRequests);

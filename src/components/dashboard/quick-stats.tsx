@@ -14,28 +14,30 @@ export function QuickStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.buildingName) return;
 
     const fetchStats = async () => {
         setLoading(true);
         let newStats = {};
         try {
+            const buildingName = currentUser.buildingName!;
+
             if (currentUser.role === 'resident') {
-                const unpaidBills = await getBills({ apartment: currentUser.apartment, status: 'unpaid' });
-                const processingRequests = (await getRequests({ apartment: currentUser.apartment })).filter(r => r.status !== 'completed');
+                const unpaidBills = await getBills({ buildingName, apartment: currentUser.apartment, status: 'unpaid' });
+                const processingRequests = (await getRequests({ buildingName, apartment: currentUser.apartment })).filter(r => r.status !== 'completed');
                 newStats = {
                     unpaidTotal: unpaidBills.reduce((sum, b) => sum + b.total, 0),
                     processingRequests: processingRequests.length
                 };
             } else if (currentUser.role === 'admin') {
-                const paidBills = await getBills({ status: 'paid' }); // Simplified for demo
-                const pendingRequests = await getRequests({ status: 'pending' });
+                const paidBills = await getBills({ buildingName, status: 'paid' }); // Simplified for demo
+                const pendingRequests = await getRequests({ buildingName, status: 'pending' });
                 newStats = {
                     totalRevenue: paidBills.reduce((sum, b) => sum + b.total, 0),
                     pendingRequests: pendingRequests.length
                 };
             } else if (currentUser.role === 'technician') {
-                const myRequests = await getRequests({ assignedTo: currentUser.uid });
+                const myRequests = await getRequests({ buildingName, assignedTo: currentUser.uid });
                 newStats = {
                     myTasks: myRequests.filter(r => r.status !== 'completed').length,
                     completedTasks: myRequests.filter(r => r.status === 'completed').length,

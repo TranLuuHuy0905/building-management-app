@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Upload, Pencil, Trash2 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { getUsers, updateUser } from '@/lib/services/user-service';
 import {
@@ -15,13 +15,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { AddUserDialog } from './add-user-dialog';
 import { BulkAddUserDialog } from './bulk-add-user-dialog';
 import { ReauthDialog } from './reauth-dialog';
 import { EditUserDialog } from './edit-user-dialog';
-
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '../ui/skeleton';
 
 export function UserList() {
   const { currentUser, createUserWithRole, deleteResident } = useAuth();
@@ -53,7 +61,7 @@ export function UserList() {
     const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
     
     // Filter for residents on the client side
-    const residentUsers = fetchedUsers.filter(user => user.role === 'resident');
+    const residentUsers = fetchedUsers.filter(user => user.role === 'resident' || user.role === 'technician');
     
     setUsers(residentUsers);
     setLoading(false);
@@ -140,7 +148,7 @@ export function UserList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 font-headline">Quản lý Cư dân</h2>
+        <h2 className="text-2xl font-bold text-gray-800 font-headline">Quản lý Thành viên</h2>
         {currentUser?.role === 'admin' && (
           <div className="flex gap-2">
             <Button onClick={() => setIsBulkAddDialogOpen(true)}>
@@ -153,6 +161,59 @@ export function UserList() {
             </Button>
           </div>
         )}
+      </div>
+
+       <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Vai trò</TableHead>
+              <TableHead>Căn hộ</TableHead>
+              <TableHead>Họ tên</TableHead>
+              <TableHead>Số điện thoại</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead className="text-right">Hành động</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={6}>
+                    <Skeleton className="h-8 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : users.length > 0 ? (
+              users.map((user) => (
+                <TableRow key={user.uid}>
+                  <TableCell>
+                    {user.role === 'resident' && <Badge variant="secondary">Cư dân</Badge>}
+                    {user.role === 'technician' && <Badge>Kỹ thuật viên</Badge>}
+                  </TableCell>
+                  <TableCell>{user.apartment || 'N/A'}</TableCell>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.phone || 'N/A'}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(user)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center h-24">
+                  Chưa có tài khoản thành viên nào.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
       
       {/* --- DIALOGS --- */}

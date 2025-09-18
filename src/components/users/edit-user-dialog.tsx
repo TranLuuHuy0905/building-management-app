@@ -38,7 +38,13 @@ export function EditUserDialog({ isOpen, onOpenChange, user, onFormSubmit }: Edi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    onFormSubmit({ name, apartment, phone });
+    
+    const updatedData: Partial<User> = { name, phone };
+    if (user.role === 'resident') {
+        updatedData.apartment = apartment;
+    }
+
+    onFormSubmit(updatedData);
     setIsSubmitting(false);
   };
 
@@ -47,23 +53,25 @@ export function EditUserDialog({ isOpen, onOpenChange, user, onFormSubmit }: Edi
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
             <DialogHeader>
-            <DialogTitle>Chỉnh sửa thông tin Cư dân</DialogTitle>
+            <DialogTitle>Chỉnh sửa thông tin thành viên</DialogTitle>
             <DialogDescription>
                 Cập nhật thông tin cho tài khoản <span className="font-bold">{user.email}</span>.
             </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                    <Label htmlFor="name">Tên cư dân</Label>
+                    <Label htmlFor="name">Họ và tên</Label>
                     <Input id="name" value={name} onChange={e => setName(e.target.value)} required />
                 </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="apartment">Số căn hộ</Label>
-                    <Input id="apartment" value={apartment} onChange={e => setApartment(e.target.value)} placeholder="Ví dụ: P-101" required />
-                </div>
+                 {user.role === 'resident' && (
+                    <div className="space-y-2">
+                        <Label htmlFor="apartment">Số căn hộ</Label>
+                        <Input id="apartment" value={apartment} onChange={e => setApartment(e.target.value)} placeholder="Ví dụ: P-101" required />
+                    </div>
+                 )}
                 <div className="space-y-2">
                     <Label htmlFor="phone">Số điện thoại</Label>
-                    <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+                    <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
             </div>
             <DialogFooter>

@@ -2,6 +2,7 @@ export interface User {
   uid: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'resident' | 'admin' | 'technician';
   apartment?: string;
   buildingName?: string;
@@ -49,4 +50,5 @@ export interface BulkUserCreationData {
   apartment: string;
   email: string;
   password: string;
+  phone: string;
 }

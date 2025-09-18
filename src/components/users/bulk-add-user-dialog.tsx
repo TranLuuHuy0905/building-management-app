@@ -26,8 +26,8 @@ interface BulkAddUserDialogProps {
     onUsersAdded: () => void;
 }
 
-const CSV_TEMPLATE_HEADER = "name,apartment,email,password\n";
-const CSV_TEMPLATE_BODY = "Nguyen Van A,P-101,nguyenvana@email.com,MatKhau123\nTran Thi B,P-102,tranthib@email.com,Password@456\n";
+const CSV_TEMPLATE_HEADER = "name,apartment,email,phone,password\n";
+const CSV_TEMPLATE_BODY = "Nguyen Van A,P-101,nguyenvana@email.com,0901234567,MatKhau123\nTran Thi B,P-102,tranthib@email.com,0907654321,Password@456\n";
 
 export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAddUserDialogProps) {
   const { createResidentsInBulk } = useAuth();
@@ -85,7 +85,7 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
         skipEmptyLines: true,
         complete: (results) => {
             const users = results.data;
-            const requiredFields: (keyof BulkUserCreationData)[] = ['name', 'email', 'apartment', 'password'];
+            const requiredFields: (keyof BulkUserCreationData)[] = ['name', 'email', 'apartment', 'password', 'phone'];
             
             const isValid = users.every(user => {
                 return requiredFields.every(field => user[field] && String(user[field]).trim() !== '');
@@ -95,7 +95,7 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                  toast({
                     variant: "destructive",
                     title: "Tệp không hợp lệ",
-                    description: "Tệp CSV phải chứa các cột 'name', 'email', 'apartment', 'password' và không có dòng trống.",
+                    description: "Tệp CSV phải chứa các cột 'name', 'email', 'apartment', 'phone', 'password' và không có dòng trống.",
                 });
                 return;
             }

@@ -28,6 +28,7 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
   const [name, setName] = useState('');
   const [apartment, setApartment] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,6 +36,7 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
     setName('');
     setApartment('');
     setEmail('');
+    setPhone('');
     setPassword('');
     setIsSubmitting(false);
   }
@@ -50,7 +52,7 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
         return;
     }
     setIsSubmitting(true);
-    const success = await createResident(name, apartment, email, password);
+    const success = await createResident(name, apartment, email, password, phone);
     setIsSubmitting(false);
 
     if (success) {
@@ -82,6 +84,10 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
                 <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="phone">Số điện thoại</Label>
+                    <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="password">Mật khẩu tạm thời</Label>

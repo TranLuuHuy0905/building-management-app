@@ -12,7 +12,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
-  createResident: (name: string, apartment: string, email: string, password: string) => Promise<boolean>;
+  createResident: (name: string, apartment: string, email: string, password: string, phone: string) => Promise<boolean>;
   createResidentsInBulk: (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [router, toast]);
 
- const createResident = useCallback(async (name: string, apartment: string, email: string, password: string) => {
+ const createResident = useCallback(async (name: string, apartment: string, email: string, password: string, phone: string) => {
     if (!currentUser || currentUser.role !== 'admin' || !currentUser.buildingName) {
         toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
         return false;
@@ -95,6 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newUserDoc: Omit<User, 'uid'> = {
             name,
             email,
+            phone,
             role: 'resident',
             apartment,
             buildingName: currentUser.buildingName,
@@ -145,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const newUserDoc: Omit<User, 'uid'> = {
                   name: user.name,
                   email: user.email,
+                  phone: user.phone,
                   role: 'resident',
                   apartment: user.apartment,
                   buildingName: currentUser.buildingName,

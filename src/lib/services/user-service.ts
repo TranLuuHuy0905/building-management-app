@@ -10,6 +10,7 @@ function docToUser(doc: DocumentData): User {
         uid: doc.id,
         name: data.name,
         email: data.email,
+        phone: data.phone,
         role: data.role,
         apartment: data.apartment,
         buildingName: data.buildingName,

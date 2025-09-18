@@ -140,6 +140,7 @@ export function UserList() {
                     <TableRow>
                       <TableHead>Tên</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Số điện thoại</TableHead>
                       <TableHead>Căn hộ</TableHead>
                       <TableHead>Vai trò</TableHead>
                     </TableRow>
@@ -150,13 +151,14 @@ export function UserList() {
                         <TableRow key={user.uid}>
                           <TableCell className="font-medium">{user.name}</TableCell>
                           <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.phone || 'N/A'}</TableCell>
                           <TableCell>{user.apartment || 'N/A'}</TableCell>
                           <TableCell>{roleBadges[user.role]}</TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                           Chưa có tài khoản cư dân nào.
                         </TableCell>
                       </TableRow>

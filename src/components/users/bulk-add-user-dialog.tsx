@@ -15,10 +15,11 @@ import { Label } from '@/components/ui/label';
 import { Loader2, FileDown, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
-import type { BulkUserCreationData } from '@/lib/types';
+import type { BulkUserCreationData, User } from '@/lib/types';
 import { Progress } from '../ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { ReauthDialog } from './reauth-dialog';
+import { getUsers } from '@/lib/services/user-service';
 
 interface BulkAddUserDialogProps {
     isOpen: boolean;
@@ -30,7 +31,7 @@ const CSV_TEMPLATE_HEADER = "name,apartment,email,phone,password\n";
 const CSV_TEMPLATE_BODY = "Nguyen Van A,P-101,nguyenvana@email.com,0901234567,MatKhau123\nTran Thi B,P-102,tranthib@email.com,0907654321,Password@456\n";
 
 export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAddUserDialogProps) {
-  const { createResidentsInBulk } = useAuth();
+  const { currentUser, createResidentsInBulk } = useAuth();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,6 +74,48 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
     }
   }
 
+  const validateData = async (users: BulkUserCreationData[]) => {
+    if (!currentUser?.buildingName) {
+        toast({ variant: "destructive", title: "Lỗi", description: "Không thể xác định tòa nhà hiện tại." });
+        return { isValid: false, message: "" };
+    }
+
+    const existingUsers = await getUsers({ buildingName: currentUser.buildingName });
+    const existingApartments = new Set(existingUsers.map(u => u.apartment));
+    const existingPhones = new Set(existingUsers.map(u => u.phone));
+    const existingEmails = new Set(existingUsers.map(u => u.email));
+
+    const apartmentsInCsv = new Set<string>();
+    const phonesInCsv = new Set<string>();
+    const emailsInCsv = new Set<string>();
+
+    for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const rowNum = i + 2; // +2 for header and 0-based index
+
+        // Check for duplicates within the CSV
+        if (apartmentsInCsv.has(user.apartment)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} bị lặp lại trong tệp.` };
+        apartmentsInCsv.add(user.apartment);
+
+        if (phonesInCsv.has(user.phone)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số điện thoại ${user.phone} bị lặp lại trong tệp.` };
+        phonesInCsv.add(user.phone);
+
+        if (emailsInCsv.has(user.email)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Email ${user.email} bị lặp lại trong tệp.` };
+        emailsInCsv.add(user.email);
+        
+        // Check against database
+        if (existingApartments.has(user.apartment)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} đã tồn tại trong hệ thống.` };
+        if (existingPhones.has(user.phone)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số điện thoại ${user.phone} đã tồn tại trong hệ thống.` };
+        if (existingEmails.has(user.email)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Email ${user.email} đã tồn tại trong hệ thống.` };
+
+        // Check password length
+        if (user.password.length < 6) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Mật khẩu phải có ít nhất 6 ký tự.` };
+    }
+    
+    return { isValid: true, message: "" };
+  }
+
+
   const handleFileParseAndValidate = (e: React.FormEvent) => {
      e.preventDefault();
     if (!file) {
@@ -83,22 +126,33 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
     Papa.parse<BulkUserCreationData>(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
+        async complete(results) {
             const users = results.data;
             const requiredFields: (keyof BulkUserCreationData)[] = ['name', 'email', 'apartment', 'password', 'phone'];
             
-            const isValid = users.every(user => {
-                return requiredFields.every(field => user[field] && String(user[field]).trim() !== '');
-            });
+            const hasAllColumns = results.meta.fields && requiredFields.every(field => results.meta.fields!.includes(field));
 
-            if (!isValid || users.length === 0) {
+            if (!hasAllColumns || users.length === 0) {
                  toast({
                     variant: "destructive",
                     title: "Tệp không hợp lệ",
-                    description: "Tệp CSV phải chứa các cột 'name', 'email', 'apartment', 'phone', 'password' và không có dòng trống.",
+                    description: "Tệp CSV phải chứa các cột 'name', 'email', 'apartment', 'phone', 'password' và có ít nhất một dòng dữ liệu.",
                 });
                 return;
             }
+
+            const { isValid, message } = await validateData(users);
+
+            if (!isValid) {
+                toast({
+                    variant: "destructive",
+                    title: "Dữ liệu không hợp lệ",
+                    description: message,
+                    duration: 7000,
+                });
+                return;
+            }
+
             setParsedUsers(users);
             setIsReauthDialogOpen(true);
         },
@@ -198,7 +252,7 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
                                 Đang xử lý...
                             </>
                         ) : (
-                           "Bắt đầu tạo"
+                           "Kiểm tra & Bắt đầu"
                         )}
                     </Button>
                 </DialogFooter>

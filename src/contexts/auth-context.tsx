@@ -3,10 +3,11 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, type User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
+import { checkApartmentAndPhoneUniqueness } from '@/lib/services/user-service';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -86,8 +87,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
     
-    // This is a simplified client-side approach. For robust multi-user creation,
-    // a Firebase Cloud Function would be the recommended approach to avoid auth state complexities.
+    // Check for uniqueness before attempting to create the user
+    const uniquenessCheck = await checkApartmentAndPhoneUniqueness(currentUser.buildingName, apartment, phone);
+    if (!uniquenessCheck.isUnique) {
+        toast({
+            variant: "destructive",
+            title: "Thông tin bị trùng",
+            description: uniquenessCheck.message,
+        });
+        return false;
+    }
+
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newResidentUser = userCredential.user;
@@ -106,6 +116,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: "Thành công!",
             description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
         });
+         // Sign the admin back in immediately
+        if (auth.currentUser?.email !== currentUser.email) {
+            // This re-login is a workaround for createUserWithEmailAndPassword signing the new user in.
+            // A more robust solution for multi-user management is Cloud Functions.
+            await signInWithEmailAndPassword(auth, currentUser.email, prompt("Vui lòng nhập lại mật khẩu admin để tiếp tục") || "");
+        }
+
 
         return true;
 
@@ -123,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => {
-      if (!currentUser || !currentUser.email) {
+      if (!currentUser || !currentUser.email || !currentUser.buildingName) {
           toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
           return { success: 0, failed: 0 };
       }
@@ -131,7 +148,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const adminEmail = currentUser.email;
 
       // Re-authentication is handled by the component before calling this function.
-      // Here we just proceed with the creation logic.
       
       let successCount = 0;
       let failedCount = 0;

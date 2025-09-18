@@ -177,40 +177,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const adminEmail = currentUser.email;
       const buildingName = currentUser.buildingName;
-
-      // Validate data before starting
-      const existingUsers = await getUsers({ buildingName });
-      const existingApartments = new Set(existingUsers.map(u => u.apartment));
-      const apartmentsInCsv = new Set<string>();
-
-      for (let i = 0; i < users.length; i++) {
-          const user = users[i];
-          const rowNum = i + 2; 
-
-          if (apartmentsInCsv.has(user.apartment)) {
-              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} bị lặp lại trong tệp.` });
-              return { success: 0, failed: 0 };
-          }
-          apartmentsInCsv.add(user.apartment);
-
-          if (existingApartments.has(user.apartment)) {
-              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} đã tồn tại trong hệ thống.` });
-              return { success: 0, failed: 0 };
-          }
-
-          if (user.password.length < 6) {
-              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Mật khẩu phải có ít nhất 6 ký tự.` });
-              return { success: 0, failed: 0 };
-          }
-      }
       
       let successCount = 0;
       let failedCount = 0;
+      const failedUsers: string[] = [];
 
       for (let i = 0; i < users.length; i++) {
           const user = users[i];
           try {
               // This creates the user but also signs them in, signing the admin out.
+              // We need a temporary auth instance to avoid this behavior
               const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
               const newResidentUser = userCredential.user;
 
@@ -227,24 +203,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch (error: any) {
               console.error(`Failed to create user ${user.email}:`, error);
               failedCount++;
+              failedUsers.push(`${user.email} (Lỗi: ${error.code})`);
           } finally {
-              // IMPORTANT: Sign the admin back in immediately to continue the loop
-              try {
-                  await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-              } catch (reauthError) {
-                  console.error("CRITICAL: Failed to sign admin back in:", reauthError);
-                  toast({
-                      variant: "destructive",
-                      title: "Lỗi nghiêm trọng",
-                      description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
-                      duration: 10000,
-                  });
-                  // Force a page reload to login screen if re-auth fails
-                  window.location.assign('/login');
-                  // Stop the process
-                  return { success: successCount, failed: failedCount };
-              }
-              onProgress(i + 1);
+             // We MUST sign the admin back in to continue, as createUserWithEmailAndPassword signs the new user in.
+             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+             onProgress(i + 1);
           }
       }
       
@@ -253,6 +216,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await handleUserAuth(auth.currentUser);
       }
 
+      if(failedCount > 0) {
+        console.error("Failed to create the following users:", failedUsers);
+      }
 
       return { success: successCount, failed: failedCount };
   }, [currentUser, toast, handleUserAuth]);

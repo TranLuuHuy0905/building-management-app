@@ -20,18 +20,16 @@ export function NotificationList() {
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!currentUser?.buildingName) {
+    if (!currentUser?.buildingName || !currentUser?.role) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    // Pass the user's role to the service for server-side filtering.
     const fetchedNotifications = await getNotifications({ 
         buildingName: currentUser.buildingName,
         role: currentUser.role 
     });
     
-    // Perform sorting on the client side after fetching.
     const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setNotifications(sortedNotifications);
     setLoading(false);

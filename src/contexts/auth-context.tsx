@@ -95,7 +95,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminEmail = currentUser.email;
     const buildingName = currentUser.buildingName;
 
-    // 1. Check for duplicate apartment
     const apartmentExists = await checkApartmentExists(buildingName, apartment);
     if (apartmentExists) {
         toast({
@@ -106,19 +105,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
     }
 
-    // 2. Create user and sign them in (which signs admin out)
-    let newResidentUser: FirebaseUser;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        newResidentUser = userCredential.user;
+        const newResidentUser = userCredential.user;
+
+        const newUserDoc: Omit<User, 'uid'> = {
+            name,
+            email,
+            phone,
+            role: 'resident',
+            apartment,
+            buildingName: buildingName,
+        };
+        await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
+
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        
+        if (auth.currentUser) {
+            await handleUserAuth(auth.currentUser);
+        }
+
+        toast({
+            title: "Thành công!",
+            description: `Đã tạo tài khoản cho cư dân ${name}.`,
+        });
+
+        return true;
     } catch (error: any) {
-        console.error("Error at createUserWithEmailAndPassword:", error);
+        console.error("Error at createResident:", error);
         toast({
             variant: "destructive",
             title: "Lỗi tạo tài khoản",
-            description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng kiểm tra lại email.",
+            description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng thử lại.",
         });
-        // IMPORTANT: Sign the admin back in if user creation fails
+        
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         } catch (reauthError) {
@@ -127,44 +147,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return false;
     }
-
-    // 3. Create the user document in Firestore
-    const newUserDoc: Omit<User, 'uid'> = {
-        name,
-        email,
-        phone,
-        role: 'resident',
-        apartment,
-        buildingName: buildingName,
-    };
-    await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
-
-    // 4. IMPORTANT: Sign the admin back in
-    try {
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-    } catch (reauthError: any) {
-        console.error("CRITICAL: Failed to sign admin back in:", reauthError);
-        toast({
-            variant: "destructive",
-            title: "Lỗi nghiêm trọng",
-            description: "Không thể đăng nhập lại tài khoản quản trị viên. Vui lòng đăng nhập lại thủ công.",
-            duration: 10000,
-        });
-        router.push('/login');
-        return false; // Return false but the user was already created.
-    }
-    
-    toast({
-        title: "Thành công!",
-        description: `Đã tạo tài khoản cho cư dân ${name} ở căn hộ ${apartment}.`,
-    });
-
-    // 5. Explicitly re-fetch admin data to update context
-    if (auth.currentUser) {
-        await handleUserAuth(auth.currentUser);
-    }
-
-    return true;
 
 }, [currentUser, toast, router, handleUserAuth]);
 
@@ -176,10 +158,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       const adminEmail = currentUser.email;
+      const buildingName = currentUser.buildingName;
       
       let successCount = 0;
       let failedCount = 0;
       const failedUsers: string[] = [];
+
+      // Pre-validation
+      const existingUsers = await getUsers({ buildingName });
+      const existingApartments = new Set(existingUsers.map(u => u.apartment));
+      const apartmentsInCsv = new Set<string>();
+
+      for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        if (apartmentsInCsv.has(user.apartment) || existingApartments.has(user.apartment)) {
+          toast({ variant: "destructive", title: "Lỗi Dữ liệu", description: `Căn hộ ${user.apartment} đã tồn tại hoặc bị lặp lại trong tệp.`});
+          return { success: 0, failed: users.length };
+        }
+        apartmentsInCsv.add(user.apartment);
+      }
+
 
       for (let i = 0; i < users.length; i++) {
           const user = users[i];
@@ -193,7 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   phone: user.phone,
                   role: 'resident',
                   apartment: user.apartment,
-                  buildingName: currentUser.buildingName,
+                  buildingName: buildingName,
               };
               await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
               successCount++;
@@ -206,6 +204,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
       }
       
+      // Sign admin back in ONCE after the loop
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       if (auth.currentUser) {
         await handleUserAuth(auth.currentUser);
@@ -335,3 +334,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+    

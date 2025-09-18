@@ -35,7 +35,7 @@ export function ReauthDialog({ isOpen, onOpenChange, onReauthSuccess }: ReauthDi
     setIsSubmitting(false);
 
     if (success) {
-      onReauthSuccess(password); // Pass the password back on success
+      onReauthSuccess(password);
       setPassword('');
       onOpenChange(false);
     }
@@ -90,3 +90,5 @@ export function ReauthDialog({ isOpen, onOpenChange, onReauthSuccess }: ReauthDi
     </Dialog>
   );
 }
+
+    

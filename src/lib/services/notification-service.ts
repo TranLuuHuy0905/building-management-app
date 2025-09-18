@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, DocumentData, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import type { Notification } from '@/lib/types';
 
 function docToNotification(doc: DocumentData): Notification {
@@ -32,5 +32,28 @@ export async function getNotifications(params: { buildingName: string; take?: nu
     } catch (error) {
         console.error("Error fetching notifications: ", error);
         return [];
+    }
+}
+
+
+export async function createNotification(notificationData: Omit<Notification, 'id'>): Promise<string | null> {
+    try {
+        const notificationsRef = collection(db, 'notifications');
+        const docRef = await addDoc(notificationsRef, notificationData);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error creating notification: ", error);
+        return null;
+    }
+}
+
+export async function deleteNotification(notificationId: string): Promise<boolean> {
+    try {
+        const notificationRef = doc(db, 'notifications', notificationId);
+        await deleteDoc(notificationRef);
+        return true;
+    } catch (error) {
+        console.error("Error deleting notification: ", error);
+        return false;
     }
 }

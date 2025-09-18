@@ -1,9 +1,12 @@
+'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Notification } from '@/lib/types';
-import { AlertCircle, Bell, Clock } from 'lucide-react';
+import { AlertCircle, Bell, Clock, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
+import { Button } from '../ui/button';
+import { useAuth } from '@/contexts/auth-context';
 
 const getTypeIcon = (type: Notification['type']) => {
   switch (type) {
@@ -23,12 +26,22 @@ const getTypeBadge = (type: Notification['type']) => {
     }
 }
 
-export function NotificationItem({ notification, isCompact = false }: { notification: Notification, isCompact?: boolean }) {
+interface NotificationItemProps {
+  notification: Notification;
+  isCompact?: boolean;
+  onDelete?: (id: string) => void;
+}
+
+
+export function NotificationItem({ notification, isCompact = false, onDelete }: NotificationItemProps) {
+  const { currentUser } = useAuth();
   const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
     setDate(notification.date);
   }, [notification.date]);
+
+  const canDelete = currentUser?.role === 'admin' && onDelete;
 
   if (isCompact) {
     return (
@@ -44,12 +57,22 @@ export function NotificationItem({ notification, isCompact = false }: { notifica
   }
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm relative">
+      {canDelete && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(notification.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
         <CardHeader>
             <div className="flex items-start space-x-4">
                 {getTypeIcon(notification.type)}
                 <div className="flex-1">
-                    <CardTitle className="text-lg">{notification.title}</CardTitle>
+                    <CardTitle className="text-lg pr-8">{notification.title}</CardTitle>
                 </div>
             </div>
         </CardHeader>

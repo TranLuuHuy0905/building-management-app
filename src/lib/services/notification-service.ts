@@ -94,7 +94,8 @@ export async function getNotifications(params: { buildingName: string; role?: Us
             query = query.where('targetType', 'in', ['all', params.role]);
         }
 
-        query = query.orderBy('date', 'desc');
+        // Sorting is removed from the server to avoid complex composite index requirements.
+        // It will be handled on the client-side.
 
         if (params.take) {
             query = query.limit(params.take);

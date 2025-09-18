@@ -31,8 +31,9 @@ export function NotificationList() {
         role: currentUser.role 
     });
     
-    // No more client-side filtering needed. The server does the work.
-    setNotifications(fetchedNotifications);
+    // Perform sorting on the client side after fetching.
+    const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setNotifications(sortedNotifications);
     setLoading(false);
   }, [currentUser?.buildingName, currentUser?.role]);
 

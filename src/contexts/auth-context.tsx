@@ -13,7 +13,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
-  createResident: (details: {name: string, apartment: string, email: string, phone: string, password: string}, adminPassword: string) => Promise<boolean>;
+  createUserWithRole: (details: {name: string, email: string, phone: string, password: string, role: User['role'], apartment?: string}, adminPassword: string) => Promise<boolean>;
   deleteResident: (userToDelete: User, adminPassword: string) => Promise<boolean>;
   createResidentsInBulk: (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
@@ -83,11 +83,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [router, toast]);
 
- const createResident = useCallback(async (
-    details: { name: string, apartment: string, email: string, phone: string, password: string },
+ const createUserWithRole = useCallback(async (
+    details: { name: string, email: string, phone: string, password: string, role: User['role'], apartment?: string },
     adminPassword: string
 ): Promise<boolean> => {
-    const { name, apartment, email, phone, password } = details;
+    const { name, apartment, email, phone, password, role } = details;
     if (!currentUser || currentUser.role !== 'admin' || !currentUser.buildingName || !currentUser.email) {
         toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
         return false;
@@ -96,29 +96,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminEmail = currentUser.email;
     const buildingName = currentUser.buildingName;
 
-    const apartmentExists = await checkApartmentExists(buildingName, apartment);
-    if (apartmentExists) {
-        toast({
-            variant: "destructive",
-            title: "Thông tin bị trùng",
-            description: "Căn hộ đó đã tồn tại.",
-        });
-        return false;
+    if(role === 'resident' && apartment) {
+        const apartmentExists = await checkApartmentExists(buildingName, apartment);
+        if (apartmentExists) {
+            toast({
+                variant: "destructive",
+                title: "Thông tin bị trùng",
+                description: "Căn hộ đó đã tồn tại.",
+            });
+            return false;
+        }
     }
+
 
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const newResidentUser = userCredential.user;
+        const newUser = userCredential.user;
 
         const newUserDoc: Omit<User, 'uid'> = {
             name,
             email,
             phone,
-            role: 'resident',
-            apartment,
+            role,
             buildingName: buildingName,
+            ...(role === 'resident' && { apartment }),
         };
-        await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
+        await setDoc(doc(db, "users", newUser.uid), newUserDoc);
         
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
@@ -128,18 +131,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         toast({
             title: "Tạo tài khoản thành công!",
-            description: `Đã tạo tài khoản cho cư dân ${name}.`,
+            description: `Đã tạo tài khoản cho ${name}.`,
         });
         return true;
     } catch (error: any) {
-        console.error("Error at createResident:", error);
+        console.error("Error at createUserWithRole:", error);
         toast({
             variant: "destructive",
             title: "Lỗi tạo tài khoản",
             description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng thử lại.",
         });
         
-        // Always try to sign the admin back in, even after a failure
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
              if (auth.currentUser) {
@@ -147,7 +149,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         } catch (reauthError) {
              console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
-             // If re-login fails, the session is lost, force a full page reload to login.
              router.push('/login');
         }
         return false;
@@ -349,7 +350,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, deleteResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword, reauthenticate }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createUserWithRole, deleteResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword, reauthenticate }}>
       {children}
     </AuthContext.Provider>
   );

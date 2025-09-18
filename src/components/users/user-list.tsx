@@ -6,20 +6,6 @@ import { Plus, Loader2, Upload, Pencil, Trash2 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { getUsers, updateUser } from '@/lib/services/user-service';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from '@/components/ui/badge';
-import { AddUserDialog } from './add-user-dialog';
-import { BulkAddUserDialog } from './bulk-add-user-dialog';
-import { Card, CardContent } from '../ui/card';
-import { ReauthDialog } from './reauth-dialog';
-import { EditUserDialog } from './edit-user-dialog';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -29,16 +15,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from '@/components/ui/badge';
+import { AddUserDialog } from './add-user-dialog';
+import { BulkAddUserDialog } from './bulk-add-user-dialog';
+import { ReauthDialog } from './reauth-dialog';
+import { EditUserDialog } from './edit-user-dialog';
+
 import { useToast } from '@/hooks/use-toast';
 
-const roleBadges: { [key in User['role']]: React.ReactNode } = {
-    'admin': <Badge variant="destructive">Quản lý</Badge>,
-    'resident': <Badge variant="secondary">Cư dân</Badge>,
-    'technician': <Badge variant="outline">Kỹ thuật</Badge>,
-}
-
 export function UserList() {
-  const { currentUser, createResident, deleteResident } = useAuth();
+  const { currentUser, createUserWithRole, deleteResident } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +117,7 @@ export function UserList() {
     
     if (reauthAction === 'create' && pendingUserData) {
       setLoading(true);
-      const success = await createResident(pendingUserData, password);
+      const success = await createUserWithRole(pendingUserData, password);
       if(success){
         await fetchUsers();
       }

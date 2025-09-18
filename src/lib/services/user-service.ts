@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, DocumentData, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData, doc, updateDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 function docToUser(doc: DocumentData): User {
@@ -44,20 +44,4 @@ export async function updateUser(uid: string, data: Partial<User>): Promise<bool
         console.error("Error updating user: ", error);
         return false;
     }
-}
-
-
-export async function checkApartmentExists(
-    buildingName: string, 
-    apartment: string
-): Promise<boolean> {
-    const usersRef = collection(db, 'users');
-    const apartmentQuery = query(
-        usersRef, 
-        where('buildingName', '==', buildingName), 
-        where('apartment', '==', apartment), 
-        limit(1)
-    );
-    const apartmentSnapshot = await getDocs(apartmentQuery);
-    return !apartmentSnapshot.empty;
 }

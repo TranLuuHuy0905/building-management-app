@@ -7,7 +7,7 @@ import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } fro
 import { auth, db } from '@/lib/firebase';
 import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { checkApartmentExists } from '@/lib/services/user-service';
+import { getUsers } from '@/lib/services/user-service';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -59,7 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [handleUserAuth]);
 
   const registerAdmin = useCallback(async (name: string, buildingName: string, email: string, password: string) => {
-    setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
@@ -77,6 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Thành công!",
         description: `Tài khoản quản lý cho tòa nhà ${buildingName} đã được tạo.`,
       });
+      // onAuthStateChanged will handle the rest
     } catch (error: any) {
       console.error("Error registering admin:", error);
       toast({
@@ -84,10 +84,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Lỗi đăng ký",
         description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : (error.message || "Đã có lỗi xảy ra."),
       });
-    } finally {
-      // setLoading(false) is handled by onAuthStateChanged
     }
-  }, [router, toast]);
+  }, [toast]);
 
  const createUserWithRole = useCallback(async (
     details: { name: string, email: string, phone: string, password: string, role: User['role'], apartment?: string },
@@ -102,23 +100,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminEmail = currentUser.email;
     const buildingName = currentUser.buildingName;
 
-    // Temporarily disable duplicate check
-    if(role === 'resident' && apartment) {
-        /*
-        const apartmentExists = await checkApartmentExists(buildingName, apartment);
-        if (apartmentExists) {
-            toast({
-                variant: "destructive",
-                title: "Thông tin bị trùng",
-                description: "Căn hộ đó đã tồn tại.",
-            });
-            return false;
-        }
-        */
+     if (role === 'resident' && !apartment) {
+      toast({
+        variant: 'destructive',
+        title: 'Thiếu thông tin',
+        description: 'Vui lòng nhập số căn hộ cho cư dân.',
+      });
+      return false;
     }
 
-
     try {
+        // This creates the user in Firebase Auth. onAuthStateChanged will not fire for the admin,
+        // but for a parallel session where this new user might log in.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
 
@@ -127,14 +120,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email,
             phone,
             role,
-            buildingName: buildingName,
+            buildingName,
             ...(role === 'resident' && { apartment }),
         };
         await setDoc(doc(db, "users", newUser.uid), newUserDoc);
         
+        // Sign the admin back in. This is crucial.
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-        
-        // Let onAuthStateChanged handle the user state update
+        // `onAuthStateChanged` will now re-trigger with the admin user, ensuring `currentUser` is correct.
         
         toast({
             title: "Tạo tài khoản thành công!",
@@ -149,13 +142,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : "Không thể tạo người dùng. Vui lòng thử lại.",
         });
         
+        // Attempt to sign admin back in to restore session if user creation failed.
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-             // Let onAuthStateChanged handle the user state update
         } catch (reauthError) {
              console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
-             await signOut(auth); // Sign out completely to force re-login
-             router.push('/login');
+             await logout(); // Sign out completely to force a clean re-login
         }
         return false;
     }
@@ -187,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   phone: user.phone,
                   role: 'resident',
                   apartment: user.apartment,
-                  buildingName: buildingName,
+                  buildingName,
               };
               await setDoc(doc(db, "users", newResidentUser.uid), newUserDoc);
               successCount++;
@@ -200,9 +192,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
       }
       
+      // Crucially, sign the admin back in to ensure their session is active and correct.
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      // Let onAuthStateChanged handle the user state update
-
+      
       if(failedCount > 0) {
         console.error("Failed to create the following users:", failedUsers);
       }
@@ -219,29 +211,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminEmail = currentUser.email;
 
     try {
-      // Step 1: Delete user from Firestore
+      // Step 1: Delete user from Firestore.
       await deleteDoc(doc(db, 'users', userToDelete.uid));
 
-      // Step 2: In a real app, you would call a backend function to delete the user from Firebase Auth
-      // For this prototype, we'll log a message. Direct client-side user deletion is not recommended.
-      console.log(`Sent request to backend to delete user ${userToDelete.uid} from Firebase Auth.`);
+      // Step 2: Log deletion for backend processing. Direct deletion is unsafe on client.
+      console.log(`Deletion request for user ${userToDelete.uid} has been logged. A backend function should handle the actual Auth deletion.`);
 
-      // Step 3: Sign the admin back in
+      // Step 3: Sign the admin back in to restore their session.
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-       // Let onAuthStateChanged handle the user state update
 
       return true;
     } catch (error: any) {
       console.error("Error deleting resident:", error);
       toast({ variant: "destructive", title: "Lỗi", description: "Xóa tài khoản không thành công." });
       
-      // Attempt to sign admin back in even if deletion fails
+      // Attempt to sign admin back in even if deletion fails.
       try {
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       } catch (reauthError) {
         console.error("CRITICAL: Failed to sign admin back in after deletion failure:", reauthError);
-        await signOut(auth);
-        router.push('/login');
+        await logout(); // Force clean re-login
       }
 
       return false;
@@ -282,7 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Lỗi đăng nhập",
         description: "Email hoặc mật khẩu không đúng.",
       });
-      setLoading(false); // Set loading to false on error
+      setLoading(false); // Set loading to false only on error
     }
   }, [toast]);
 
@@ -291,7 +280,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signOut(auth);
       router.push('/login');
-      setCurrentUser(null); // Explicitly clear user
+      // onAuthStateChanged will set user to null and loading to false
     } catch (error) {
       console.error("Error signing out:", error);
        toast({

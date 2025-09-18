@@ -57,7 +57,7 @@ export function CreateNotificationDialog({ isOpen, onOpenChange, onNotificationC
         type,
         targetType,
         buildingName: currentUser.buildingName,
-        date: new Date().toLocaleDateString('vi-VN'),
+        date: new Date().toISOString(),
     };
 
     const newNotificationId = await createNotification(notificationData);

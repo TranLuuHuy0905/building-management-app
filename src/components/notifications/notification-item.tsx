@@ -38,7 +38,19 @@ export function NotificationItem({ notification, isCompact = false, onDelete }: 
   const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
-    setDate(notification.date);
+    try {
+      const formattedDate = new Date(notification.date).toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      setDate(formattedDate);
+    } catch(e) {
+      // Fallback for invalid date format from old data
+      setDate(notification.date);
+    }
   }, [notification.date]);
 
   const canDelete = currentUser?.role === 'admin' && onDelete;

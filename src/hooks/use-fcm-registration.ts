@@ -1,24 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
-import { getMessaging, getToken } from 'firebase/messaging';
-import { app as firebaseApp } from '@/lib/firebaseClient';
+import { getToken } from 'firebase/messaging';
+import { messaging } from '@/lib/firebaseClient';
 import { useAuth } from '@/contexts/auth-context';
 import { saveUserFcmToken } from '@/lib/services/notification-service';
 
-// Hướng dẫn LẤY VAPID KEY:
-// 1. Mở Firebase Console > Project Settings (Cài đặt dự án).
-// 2. Chuyển đến tab "Cloud Messaging".
-// 3. Kéo xuống phần "Web configuration" (Cấu hình web).
-// 4. Trong mục "Web Push certificates", sao chép giá trị "Key pair".
-// 5. Dán giá trị đó vào tệp .env.local với tên biến NEXT_PUBLIC_FCM_VAPID_KEY.
+// This VAPID key is a placeholder. You need to replace it with your actual key.
 const VAPID_KEY = process.env.NEXT_PUBLIC_FCM_VAPID_KEY;
 
 export function useFcmRegistration() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !currentUser) {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !currentUser || !messaging) {
       return;
     }
     
@@ -26,8 +21,6 @@ export function useFcmRegistration() {
       console.error("Firebase VAPID key is missing. Push notifications will not work.");
       return;
     }
-
-    const messaging = getMessaging(firebaseApp);
 
     const requestPermissionAndGetToken = async () => {
       try {
@@ -46,11 +39,14 @@ export function useFcmRegistration() {
             // 3. Check if token already exists for the user to avoid unnecessary writes
             const userTokens = currentUser.fcmTokens || [];
             if (!userTokens.includes(currentToken)) {
-                // 4. Save token to server
+                // 4. Save token to server by calling the Server Action
                 await saveUserFcmToken(currentToken);
-                console.log('FCM token saved to server.');
+                console.log('FCM token sent to server for saving.');
+                // Note: We don't update the local currentUser state here.
+                // The source of truth is Firestore. The local state will be updated
+                // on the next full page load or when the auth state changes.
             } else {
-                console.log('FCM token already exists for this user.');
+                console.log('FCM token already registered for this user.');
             }
           } else {
             console.log('No registration token available. Request permission to generate one.');

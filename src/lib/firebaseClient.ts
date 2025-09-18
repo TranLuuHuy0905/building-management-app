@@ -22,7 +22,11 @@ const db = getFirestore(app);
 // This needs to be conditional because Service Workers cannot access window
 let messaging;
 if (typeof window !== 'undefined') {
-    messaging = getMessaging(app);
+    try {
+        messaging = getMessaging(app);
+    } catch (err) {
+        console.error("Failed to initialize Firebase Messaging", err);
+    }
 }
 
 

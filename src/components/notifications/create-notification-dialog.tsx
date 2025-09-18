@@ -59,7 +59,7 @@ export function CreateNotificationDialog({ isOpen, onOpenChange, onNotificationC
         buildingName: currentUser.buildingName,
     };
 
-    const result = await createAndSendNotification(notificationData as Omit<Notification, 'id'>);
+    const result = await createAndSendNotification(notificationData);
     setIsSubmitting(false);
 
     if (result.newNotificationId) {

@@ -258,7 +258,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await userCredential.user.getIdToken();
+      // Set session cookie
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
       // onAuthStateChanged will handle the rest, including setting loading to false
       toast({
         title: "Đăng nhập thành công!",
@@ -279,6 +286,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       await signOut(auth);
+      // Clear session cookie
+      await fetch('/api/auth/session', { method: 'DELETE' });
       router.push('/login');
       // onAuthStateChanged will set user to null and loading to false
     } catch (error) {

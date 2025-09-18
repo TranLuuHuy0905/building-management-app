@@ -60,10 +60,10 @@ export function UserList() {
     setLoading(true);
     const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
     
-    // Filter for residents on the client side
-    const residentUsers = fetchedUsers.filter(user => user.role === 'resident' || user.role === 'technician');
+    // Filter for residents and technicians on the client side.
+    const memberUsers = fetchedUsers.filter(user => user.role === 'resident' || user.role === 'technician');
     
-    setUsers(residentUsers);
+    setUsers(memberUsers);
     setLoading(false);
   }, [currentUser?.buildingName]);
 

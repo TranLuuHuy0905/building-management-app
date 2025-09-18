@@ -82,12 +82,8 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
 
     const existingUsers = await getUsers({ buildingName: currentUser.buildingName });
     const existingApartments = new Set(existingUsers.map(u => u.apartment));
-    const existingPhones = new Set(existingUsers.map(u => u.phone));
-    const existingEmails = new Set(existingUsers.map(u => u.email));
 
     const apartmentsInCsv = new Set<string>();
-    const phonesInCsv = new Set<string>();
-    const emailsInCsv = new Set<string>();
 
     for (let i = 0; i < users.length; i++) {
         const user = users[i];
@@ -96,18 +92,10 @@ export function BulkAddUserDialog({ isOpen, onOpenChange, onUsersAdded }: BulkAd
         // Check for duplicates within the CSV
         if (apartmentsInCsv.has(user.apartment)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} bị lặp lại trong tệp.` };
         apartmentsInCsv.add(user.apartment);
-
-        if (phonesInCsv.has(user.phone)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số điện thoại ${user.phone} bị lặp lại trong tệp.` };
-        phonesInCsv.add(user.phone);
-
-        if (emailsInCsv.has(user.email)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Email ${user.email} bị lặp lại trong tệp.` };
-        emailsInCsv.add(user.email);
         
         // Check against database
         if (existingApartments.has(user.apartment)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} đã tồn tại trong hệ thống.` };
-        if (existingPhones.has(user.phone)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Số điện thoại ${user.phone} đã tồn tại trong hệ thống.` };
-        if (existingEmails.has(user.email)) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Email ${user.email} đã tồn tại trong hệ thống.` };
-
+       
         // Check password length
         if (user.password.length < 6) return { isValid: false, message: `Lỗi ở dòng ${rowNum}: Mật khẩu phải có ít nhất 6 ký tự.` };
     }

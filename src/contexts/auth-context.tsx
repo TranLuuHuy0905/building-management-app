@@ -7,7 +7,7 @@ import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase
 import { auth, db } from '@/lib/firebase';
 import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { checkApartmentAndPhoneUniqueness } from '@/lib/services/user-service';
+import { checkApartmentUniqueness } from '@/lib/services/user-service';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     // Check for uniqueness before attempting to create the user
-    const uniquenessCheck = await checkApartmentAndPhoneUniqueness(currentUser.buildingName, apartment, phone);
+    const uniquenessCheck = await checkApartmentUniqueness(currentUser.buildingName, apartment);
     if (!uniquenessCheck.isUnique) {
         toast({
             variant: "destructive",

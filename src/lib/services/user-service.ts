@@ -31,10 +31,9 @@ export async function getUsers(params: { buildingName: string }): Promise<User[]
 }
 
 
-export async function checkApartmentAndPhoneUniqueness(
+export async function checkApartmentUniqueness(
     buildingName: string, 
-    apartment: string, 
-    phone: string
+    apartment: string
 ): Promise<{ isUnique: boolean, message: string }> {
     const usersRef = collection(db, 'users');
 
@@ -43,13 +42,6 @@ export async function checkApartmentAndPhoneUniqueness(
     const apartmentSnapshot = await getDocs(apartmentQuery);
     if (!apartmentSnapshot.empty) {
         return { isUnique: false, message: `Số căn hộ ${apartment} đã tồn tại trong tòa nhà này.` };
-    }
-
-    // Check for phone uniqueness
-    const phoneQuery = query(usersRef, where('buildingName', '==', buildingName), where('phone', '==', phone), limit(1));
-    const phoneSnapshot = await getDocs(phoneQuery);
-    if (!phoneSnapshot.empty) {
-        return { isUnique: false, message: `Số điện thoại ${phone} đã tồn tại trong tòa nhà này.` };
     }
 
     return { isUnique: true, message: '' };

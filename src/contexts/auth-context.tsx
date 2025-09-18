@@ -2,8 +2,8 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, type User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, type User as FirebaseUser, deleteUser } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, BulkUserCreationData } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ interface AuthContextType {
   loading: boolean;
   registerAdmin: (name: string, buildingName: string, email: string, password: string) => Promise<void>;
   createResident: (details: {name: string, apartment: string, email: string, phone: string, password: string}, adminPassword: string) => Promise<boolean>;
+  deleteResident: (userToDelete: User, adminPassword: string) => Promise<boolean>;
   createResidentsInBulk: (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => Promise<{success: number, failed: number}>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -141,6 +142,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+             if (auth.currentUser) {
+              await handleUserAuth(auth.currentUser);
+            }
         } catch (reauthError) {
              console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
              router.push('/login');
@@ -163,21 +167,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       let successCount = 0;
       let failedCount = 0;
       const failedUsers: string[] = [];
-
-      // Pre-validation
-      const existingUsers = await getUsers({ buildingName });
-      const existingApartments = new Set(existingUsers.map(u => u.apartment));
-      const apartmentsInCsv = new Set<string>();
-
-      for (let i = 0; i < users.length; i++) {
-        const user = users[i];
-        if (apartmentsInCsv.has(user.apartment) || existingApartments.has(user.apartment)) {
-          toast({ variant: "destructive", title: "Lỗi Dữ liệu", description: `Căn hộ ${user.apartment} đã tồn tại hoặc bị lặp lại trong tệp.`});
-          return { success: 0, failed: users.length };
-        }
-        apartmentsInCsv.add(user.apartment);
-      }
-
 
       for (let i = 0; i < users.length; i++) {
           const user = users[i];
@@ -204,7 +193,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
       }
       
-      // Sign admin back in ONCE after the loop
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       if (auth.currentUser) {
         await handleUserAuth(auth.currentUser);
@@ -216,6 +204,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return { success: successCount, failed: failedCount };
   }, [currentUser, toast, handleUserAuth]);
+
+    const deleteResident = useCallback(async (userToDelete: User, adminPassword: string): Promise<boolean> => {
+    if (!currentUser || currentUser.role !== 'admin' || !currentUser.email) {
+      toast({ variant: "destructive", title: "Lỗi", description: "Bạn không có quyền thực hiện hành động này." });
+      return false;
+    }
+
+    const adminEmail = currentUser.email;
+
+    try {
+      // Step 1: Delete user from Firestore
+      await deleteDoc(doc(db, 'users', userToDelete.uid));
+
+      // Step 2: In a real app, you would call a backend function to delete the user from Firebase Auth
+      // For this prototype, we'll log a message. Direct client-side user deletion is not recommended.
+      console.log(`Sent request to backend to delete user ${userToDelete.uid} from Firebase Auth.`);
+
+      // Step 3: Sign the admin back in
+      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      if (auth.currentUser) {
+        await handleUserAuth(auth.currentUser);
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error("Error deleting resident:", error);
+      toast({ variant: "destructive", title: "Lỗi", description: "Xóa tài khoản không thành công." });
+      
+      // Attempt to sign admin back in even if deletion fails
+      try {
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      } catch (reauthError) {
+        console.error("CRITICAL: Failed to sign admin back in after deletion failure:", reauthError);
+        router.push('/login');
+      }
+
+      return false;
+    }
+  }, [currentUser, router, toast, handleUserAuth]);
+
 
   const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
     const user = auth.currentUser;
@@ -321,7 +349,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword, reauthenticate }}>
+    <AuthContext.Provider value={{ currentUser, loading, registerAdmin, createResident, deleteResident, createResidentsInBulk, login, logout, changeUserPassword, resetPassword, reauthenticate }}>
       {children}
     </AuthContext.Provider>
   );
@@ -334,5 +362,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-    

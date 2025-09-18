@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, DocumentData, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData, limit, doc, updateDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 function docToUser(doc: DocumentData): User {
@@ -27,6 +27,17 @@ export async function getUsers(params: { buildingName: string }): Promise<User[]
     } catch (error) {
         console.error("Error fetching users: ", error);
         return [];
+    }
+}
+
+export async function updateUser(uid: string, data: Partial<User>): Promise<boolean> {
+    try {
+        const userRef = doc(db, 'users', uid);
+        await updateDoc(userRef, data);
+        return true;
+    } catch (error) {
+        console.error("Error updating user: ", error);
+        return false;
     }
 }
 

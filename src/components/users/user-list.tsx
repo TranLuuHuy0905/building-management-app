@@ -56,7 +56,6 @@ export function UserList() {
   
   // Reauth state
   const [reauthAction, setReauthAction] = useState<'create' | 'delete' | null>(null);
-  const [adminPassword, setAdminPassword] = useState<string>('');
 
 
   const fetchUsers = useCallback(async () => {
@@ -67,11 +66,7 @@ export function UserList() {
     setLoading(true);
     const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
     
-    const residentUsers = fetchedUsers
-      .filter(user => user.role === 'resident')
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    setUsers(residentUsers);
+    setUsers(fetchedUsers);
     setLoading(false);
   }, [currentUser?.buildingName]);
 
@@ -100,15 +95,17 @@ export function UserList() {
 
   const handleEditUserSubmit = async (updatedData: Partial<User>) => {
     if (!selectedUser) return;
+    setLoading(true);
     const success = await updateUser(selectedUser.uid, updatedData);
     if (success) {
       toast({ title: "Thành công", description: "Thông tin người dùng đã được cập nhật." });
       await fetchUsers();
-      setIsEditUserDialogOpen(false);
-      setSelectedUser(null);
     } else {
       toast({ variant: "destructive", title: "Lỗi", description: "Không thể cập nhật thông tin." });
     }
+    setIsEditUserDialogOpen(false);
+    setSelectedUser(null);
+    setLoading(false);
   };
 
 
@@ -127,6 +124,9 @@ export function UserList() {
 
   // --- Re-authentication Flow ---
   const handleReauthSuccess = async (password: string) => {
+    setIsReauthDialogOpen(false);
+    setLoading(true);
+    
     if (reauthAction === 'create' && pendingUserData) {
       const success = await createResident(pendingUserData, password);
       if (success) {
@@ -144,7 +144,7 @@ export function UserList() {
     setPendingUserData(null);
     setSelectedUser(null);
     setReauthAction(null);
-    setIsReauthDialogOpen(false);
+    setLoading(false);
   }
   
   return (

@@ -32,11 +32,13 @@ export function UserList() {
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
 
   const fetchUsers = async () => {
-      if (!currentUser || !currentUser.buildingName) return;
+      if (!currentUser || !currentUser.buildingName) {
+        setLoading(false);
+        return;
+      };
       setLoading(true);
       const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
       
-      // Filter to show only residents and sort them by name
       const residentUsers = fetchedUsers
         .filter(user => user.role === 'resident')
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -47,10 +49,10 @@ export function UserList() {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentUser?.buildingName]);
+  }, [currentUser]);
 
   const handleUserAdded = () => {
-    fetchUsers(); // Re-fetch users after one is added
+    fetchUsers(); 
   }
   
   return (

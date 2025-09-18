@@ -174,6 +174,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               onProgress(i + 1);
           }
       }
+      // After loop finishes, explicitly fetch admin user data again to ensure context is correct
+      const adminUser = auth.currentUser;
+      if (adminUser) {
+        await handleUserAuth(adminUser);
+      }
+
 
       return { success: successCount, failed: failedCount };
   }, [currentUser, toast]);

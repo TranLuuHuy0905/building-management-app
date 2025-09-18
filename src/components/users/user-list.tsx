@@ -47,7 +47,7 @@ export function UserList() {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentUser]);
+  }, [currentUser?.buildingName]);
 
   const handleUserAdded = () => {
     fetchUsers(); // Re-fetch users after one is added
@@ -89,34 +89,36 @@ export function UserList() {
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tên</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Căn hộ</TableHead>
-                    <TableHead>Vai trò</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.length > 0 ? (
-                    users.map(user => (
-                      <TableRow key={user.uid}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.apartment || 'N/A'}</TableCell>
-                        <TableCell>{roleBadges[user.role]}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        Chưa có tài khoản cư dân nào.
-                      </TableCell>
+                      <TableHead>Tên</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Căn hộ</TableHead>
+                      <TableHead>Vai trò</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length > 0 ? (
+                      users.map(user => (
+                        <TableRow key={user.uid}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.apartment || 'N/A'}</TableCell>
+                          <TableCell>{roleBadges[user.role]}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          Chưa có tài khoản cư dân nào.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
         </CardContent>
       </Card>

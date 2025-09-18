@@ -28,12 +28,11 @@ const getTypeBadge = (type: Notification['type']) => {
 
 interface NotificationItemProps {
   notification: Notification;
-  isCompact?: boolean;
   onDelete?: (id: string) => void;
 }
 
 
-export function NotificationItem({ notification, isCompact = false, onDelete }: NotificationItemProps) {
+export function NotificationItem({ notification, onDelete }: NotificationItemProps) {
   const { currentUser } = useAuth();
   const [date, setDate] = useState<string | null>(null);
 
@@ -55,19 +54,6 @@ export function NotificationItem({ notification, isCompact = false, onDelete }: 
 
   const canDelete = currentUser?.role === 'admin' && onDelete;
 
-  if (isCompact) {
-    return (
-        <div className="flex items-start space-x-4 p-3 bg-secondary/50 rounded-lg">
-            <div className="pt-1">{getTypeIcon(notification.type)}</div>
-            <div className="flex-1">
-                <h4 className="font-semibold text-gray-800">{notification.title}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{notification.content}</p>
-                {date && <p className="text-xs text-muted-foreground/80 mt-2">{date}</p>}
-            </div>
-        </div>
-    );
-  }
-
   return (
     <Card className="shadow-sm relative">
       {canDelete && (
@@ -76,6 +62,7 @@ export function NotificationItem({ notification, isCompact = false, onDelete }: 
             size="icon" 
             className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
             onClick={() => onDelete(notification.id)}
+            aria-label="Xóa thông báo"
           >
             <Trash2 className="w-4 h-4" />
           </Button>

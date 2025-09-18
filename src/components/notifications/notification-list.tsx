@@ -37,7 +37,7 @@ export function NotificationList() {
 
     setNotifications(filtered);
     setLoading(false);
-  }, [currentUser]);
+  }, [currentUser?.buildingName, currentUser?.role]);
 
   useEffect(() => {
     fetchNotifications();
@@ -86,7 +86,7 @@ export function NotificationList() {
                   <NotificationItem 
                     key={notification.id} 
                     notification={notification} 
-                    onDelete={handleOpenDeleteDialog}
+                    onDelete={currentUser?.role === 'admin' ? handleOpenDeleteDialog : undefined}
                   />
               ))
           ) : (

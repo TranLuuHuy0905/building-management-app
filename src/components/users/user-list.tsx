@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Plus, Loader2, Upload } from 'lucide-react';
@@ -17,10 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { AddUserDialog } from './add-user-dialog';
 import { BulkAddUserDialog } from './bulk-add-user-dialog';
 import { Card, CardContent } from '../ui/card';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { ReauthDialog } from './reauth-dialog';
 
 const roleBadges: { [key in User['role']]: React.ReactNode } = {
     'admin': <Badge variant="destructive">Quản lý</Badge>,
@@ -29,74 +26,60 @@ const roleBadges: { [key in User['role']]: React.ReactNode } = {
 }
 
 export function UserList() {
-  const { currentUser } = useAuth(); // Keep for role check on UI
+  const { currentUser, createResident } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Dialog states
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
-
-  const fetchUsers = async (buildingName: string) => {
-      setLoading(true);
-      const fetchedUsers = await getUsers({ buildingName });
-      
-      const residentUsers = fetchedUsers
-        .filter(user => user.role === 'resident')
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      setUsers(residentUsers);
-      setLoading(false);
-  };
+  const [isReauthDialogOpen, setIsReauthDialogOpen] = useState(false);
   
-  const handleUserAdded = async () => {
-    const firebaseUser = auth.currentUser;
-    if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        try {
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                const fullUser = userDocSnap.data() as User;
-                if (fullUser.buildingName) {
-                    await fetchUsers(fullUser.buildingName);
-                }
-            }
-        } catch (error) {
-            console.error("Error re-fetching users:", error);
-            setLoading(false);
-        }
-    }
-  }
+  // Data to be processed after re-authentication
+  const [pendingUserData, setPendingUserData] = useState<any>(null);
+
+
+  const fetchUsers = useCallback(async () => {
+    if (!currentUser?.buildingName) {
+        setLoading(false);
+        return;
+    };
+    setLoading(true);
+    const fetchedUsers = await getUsers({ buildingName: currentUser.buildingName });
+    
+    const residentUsers = fetchedUsers
+      .filter(user => user.role === 'resident')
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    setUsers(residentUsers);
+    setLoading(false);
+  }, [currentUser?.buildingName]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        try {
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const fullUser = userDocSnap.data() as User;
-            if (fullUser.buildingName) {
-              await fetchUsers(fullUser.buildingName);
-            } else {
-              setLoading(false);
-              setUsers([]);
-            }
-          } else {
-            setLoading(false);
-            setUsers([]);
-          }
-        } catch (error) {
-          console.error("Error fetching user document:", error);
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-        setUsers([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    fetchUsers();
+  }, [fetchUsers]);
 
+  const handleOpenAddUserDialog = () => {
+    setPendingUserData(null);
+    setIsAddUserDialogOpen(true);
+  }
 
+  const handleAddUserSubmit = (userData: any) => {
+    setPendingUserData(userData);
+    setIsAddUserDialogOpen(false);
+    setIsReauthDialogOpen(true);
+  }
+
+  const handleReauthSuccess = async (adminPassword: string) => {
+    if (!pendingUserData) return;
+
+    const success = await createResident(pendingUserData, adminPassword);
+    
+    if (success) {
+      await fetchUsers(); // Re-fetch users on success
+    }
+    setPendingUserData(null); // Clear pending data
+  }
   
   return (
     <div>
@@ -108,7 +91,7 @@ export function UserList() {
               <Upload className="mr-2 h-4 w-4" />
               Tạo hàng loạt
             </Button>
-            <Button onClick={() => setIsAddUserDialogOpen(true)}>
+            <Button onClick={handleOpenAddUserDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Thêm mới
             </Button>
@@ -119,12 +102,17 @@ export function UserList() {
       <AddUserDialog 
         isOpen={isAddUserDialogOpen} 
         onOpenChange={setIsAddUserDialogOpen}
-        onUserAdded={handleUserAdded}
+        onFormSubmit={handleAddUserSubmit}
       />
       <BulkAddUserDialog
         isOpen={isBulkAddDialogOpen}
         onOpenChange={setIsBulkAddDialogOpen}
-        onUsersAdded={handleUserAdded}
+        onUsersAdded={fetchUsers}
+      />
+      <ReauthDialog 
+        isOpen={isReauthDialogOpen}
+        onOpenChange={setIsReauthDialogOpen}
+        onReauthSuccess={handleReauthSuccess}
       />
       
       <Card>

@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,11 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 interface AddUserDialogProps {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-    onUserAdded: () => void;
+    onFormSubmit: (data: any) => void;
 }
 
-export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDialogProps) {
-  const { createResident } = useAuth();
+export function AddUserDialog({ isOpen, onOpenChange, onFormSubmit }: AddUserDialogProps) {
   const { toast } = useToast();
 
   const [name, setName] = useState('');
@@ -38,7 +36,6 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
     setEmail('');
     setPhone('');
     setPassword('');
-    setIsSubmitting(false);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,15 +48,10 @@ export function AddUserDialog({ isOpen, onOpenChange, onUserAdded }: AddUserDial
         });
         return;
     }
-    setIsSubmitting(true);
-    const success = await createResident(name, apartment, email, password, phone);
-    setIsSubmitting(false);
-
-    if (success) {
-      resetForm();
-      onUserAdded();
-      onOpenChange(false);
-    }
+    
+    // Pass data up to the parent to handle re-authentication
+    onFormSubmit({ name, apartment, email, phone, password });
+    resetForm();
   };
 
   return (

@@ -160,9 +160,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     // 5. Explicitly re-fetch admin data to update context
-    const adminUser = auth.currentUser;
-    if (adminUser) {
-        await handleUserAuth(adminUser);
+    if (auth.currentUser) {
+        await handleUserAuth(auth.currentUser);
     }
 
     return true;
@@ -177,6 +176,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       const adminEmail = currentUser.email;
+      const buildingName = currentUser.buildingName;
+
+      // Validate data before starting
+      const existingUsers = await getUsers({ buildingName });
+      const existingApartments = new Set(existingUsers.map(u => u.apartment));
+      const apartmentsInCsv = new Set<string>();
+
+      for (let i = 0; i < users.length; i++) {
+          const user = users[i];
+          const rowNum = i + 2; 
+
+          if (apartmentsInCsv.has(user.apartment)) {
+              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} bị lặp lại trong tệp.` });
+              return { success: 0, failed: 0 };
+          }
+          apartmentsInCsv.add(user.apartment);
+
+          if (existingApartments.has(user.apartment)) {
+              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Số căn hộ ${user.apartment} đã tồn tại trong hệ thống.` });
+              return { success: 0, failed: 0 };
+          }
+
+          if (user.password.length < 6) {
+              toast({ variant: "destructive", title: "Dữ liệu không hợp lệ", description: `Lỗi ở dòng ${rowNum}: Mật khẩu phải có ít nhất 6 ký tự.` });
+              return { success: 0, failed: 0 };
+          }
+      }
       
       let successCount = 0;
       let failedCount = 0;
@@ -221,10 +247,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               onProgress(i + 1);
           }
       }
+      
       // After loop finishes, explicitly fetch admin user data again to ensure context is correct
-      const adminUser = auth.currentUser;
-      if (adminUser) {
-        await handleUserAuth(adminUser);
+      if (auth.currentUser) {
+        await handleUserAuth(auth.currentUser);
       }
 
 

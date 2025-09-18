@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import type { User } from '@/lib/types';
+import { Separator } from '../ui/separator';
 
 interface AddUserDialogProps {
     isOpen: boolean;
@@ -68,49 +69,60 @@ export function AddUserDialog({ isOpen, onOpenChange, onFormSubmit }: AddUserDia
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
             <DialogHeader>
             <DialogTitle>Thêm tài khoản mới</DialogTitle>
             <DialogDescription>
-                Tạo một tài khoản mới. Họ có thể đổi mật khẩu sau khi đăng nhập lần đầu.
+                Chọn vai trò và điền thông tin chi tiết cho tài khoản.
             </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-                 <div className="space-y-2">
-                    <Label>Vai trò</Label>
-                    <RadioGroup defaultValue="resident" onValueChange={(value: User['role']) => setRole(value)} className="flex gap-4">
+            <div className="space-y-4 py-4">
+                 <div className="space-y-3">
+                    <Label className="font-semibold">1. Chọn vai trò</Label>
+                    <RadioGroup defaultValue="resident" onValueChange={(value: User['role']) => setRole(value)} className="flex gap-4 pt-1">
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="resident" id="r-resident" />
-                            <Label htmlFor="r-resident">Cư dân</Label>
+                            <Label htmlFor="r-resident" className="font-normal">Cư dân</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="technician" id="r-technician" />
-                            <Label htmlFor="r-technician">Kỹ thuật</Label>
+                            <Label htmlFor="r-technician" className="font-normal">Kỹ thuật viên</Label>
                         </div>
                     </RadioGroup>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="name">Tên</Label>
-                    <Input id="name" value={name} onChange={e => setName(e.target.value)} required />
-                </div>
-                 {role === 'resident' && (
-                    <div className="space-y-2">
-                        <Label htmlFor="apartment">Số căn hộ</Label>
-                        <Input id="apartment" value={apartment} onChange={e => setApartment(e.target.value)} placeholder="Ví dụ: P-101" required={role === 'resident'} />
+
+                <div className="space-y-3">
+                    <Label className="font-semibold">2. Thông tin chi tiết</Label>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 pl-2">
+                        <div className="col-span-2 space-y-1">
+                            <Label htmlFor="name">Họ và tên</Label>
+                            <Input id="name" value={name} onChange={e => setName(e.target.value)} required />
+                        </div>
+                         {role === 'resident' && (
+                            <div className="col-span-2 space-y-1">
+                                <Label htmlFor="apartment">Số căn hộ</Label>
+                                <Input id="apartment" value={apartment} onChange={e => setApartment(e.target.value)} placeholder="Ví dụ: P-101" required={role === 'resident'} />
+                            </div>
+                         )}
+                         <div className="col-span-2 space-y-1">
+                            <Label htmlFor="email">Email</Label>
+                            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                            <Label htmlFor="phone">Số điện thoại</Label>
+                            <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+                        </div>
                     </div>
-                 )}
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Số điện thoại</Label>
-                    <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password">Mật khẩu tạm thời</Label>
-                    <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} required />
+
+                 <div className="space-y-3">
+                    <Label className="font-semibold">3. Mật khẩu</Label>
+                     <div className="pl-2 space-y-1">
+                        <Label htmlFor="password">Mật khẩu tạm thời</Label>
+                        <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} required />
+                        <p className="text-xs text-muted-foreground pt-1">Người dùng có thể đổi mật khẩu này sau khi đăng nhập lần đầu.</p>
+                    </div>
                 </div>
             </div>
             <DialogFooter>

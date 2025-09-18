@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { Loader2 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { useIsClient } from '@/hooks/use-is-client';
+import { useFcmRegistration } from '@/hooks/use-fcm-registration';
 
 interface AuthGuardLayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,9 @@ export function AuthGuardLayout({ children, allowedRoles }: AuthGuardLayoutProps
   const { currentUser, loading } = useAuth();
   const router = useRouter();
   const isClient = useIsClient();
+
+  // Run the FCM registration hook
+  useFcmRegistration();
 
   useEffect(() => {
     if (!isClient || loading) {

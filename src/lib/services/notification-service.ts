@@ -2,10 +2,47 @@
 
 import { firestoreAdmin, messagingAdmin } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { auth } from '@/lib/firebaseClient';
+import { getAuth } from 'firebase-admin/auth';
+
+/**
+ * Saves a user's FCM token to their user document in Firestore.
+ * This is a Server Action called from the client.
+ * @param token The FCM token to save.
+ */
+export async function saveUserFcmToken(token: string): Promise<void> {
+  const session = cookies().get('__session')?.value || '';
+  if (!session) {
+    console.error("No session cookie found. User must be logged in to save FCM token.");
+    return;
+  }
+  
+  try {
+    const decodedToken = await getAuth().verifySessionCookie(session, true);
+    const userId = decodedToken.uid;
+    
+    if (!userId) {
+        console.error("Could not verify user session. FCM token not saved.");
+        return;
+    }
+    
+    const userRef = firestoreAdmin.collection('users').doc(userId);
+    await userRef.update({
+      fcmTokens: FieldValue.arrayUnion(token)
+    });
+
+  } catch (error) {
+    console.error("Error saving FCM token:", error);
+  }
+}
+
 
 /**
  * Creates a notification, saves it to Firestore, and sends push notifications via FCM.
+ * Includes cleanup of stale/invalid tokens.
  * @param notificationData The notification data, excluding the ID.
  * @returns An object with the count of successful and failed deliveries.
  */
@@ -32,13 +69,16 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
             return { success: 0, failed: 0, newNotificationId };
         }
 
-        const tokens: string[] = [];
+        let tokens: string[] = [];
         usersSnapshot.forEach(doc => {
             const user = doc.data() as User;
-            if (user.fcmTokens && user.fcmTokens.length > 0) {
+            if (user.fcmTokens && Array.isArray(user.fcmTokens)) {
                 tokens.push(...user.fcmTokens);
             }
         });
+
+        // Deduplicate tokens
+        tokens = [...new Set(tokens)];
 
         if (tokens.length === 0) {
             console.log("No FCM tokens found for target users. Notification saved but not sent.");
@@ -56,19 +96,31 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
 
         const response = await messagingAdmin.sendEachForMulticast(message);
         
-        // Step 4: Log errors for debugging.
+        // Step 4: Handle stale tokens and log errors.
         if (response.failureCount > 0) {
-            const failedTokens: string[] = [];
+            const tokensToDelete: string[] = [];
             response.responses.forEach((resp, idx) => {
                 if (!resp.success) {
-                    failedTokens.push(tokens[idx]);
-                    console.error(`FCM send failed for token: ${tokens[idx]}`, resp.error);
+                    const errorCode = resp.error?.code;
+                    // Check for errors indicating an invalid or unregistered token
+                    if (errorCode === 'messaging/invalid-registration-token' ||
+                        errorCode === 'messaging/registration-token-not-registered') {
+                        const failedToken = tokens[idx];
+                        console.log(`Stale/invalid token found: ${failedToken}. Marking for deletion.`);
+                        tokensToDelete.push(failedToken);
+                    } else {
+                         console.error(`FCM send failed for token: ${tokens[idx]}`, resp.error);
+                    }
                 }
             });
+            // Clean up stale tokens from Firestore
+            if (tokensToDelete.length > 0) {
+                await cleanupStaleTokens(tokensToDelete);
+            }
         }
         
         console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
-
+        revalidatePath('/notifications');
         return { success: response.successCount, failed: response.failureCount, newNotificationId };
 
     } catch (error) {
@@ -76,6 +128,37 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         return { success: 0, failed: 0, newNotificationId: null };
     }
 }
+
+/**
+ * Finds users with stale tokens and removes them from their fcmTokens array.
+ * @param tokensToDelete Array of stale token strings.
+ */
+async function cleanupStaleTokens(tokensToDelete: string[]) {
+    if (tokensToDelete.length === 0) return;
+    
+    console.log(`Cleaning up ${tokensToDelete.length} stale tokens...`);
+    const usersRef = firestoreAdmin.collection('users');
+    // Firestore 'array-contains-any' is limited to 10 values, so we may need to batch
+    const batchSize = 10;
+    for (let i = 0; i < tokensToDelete.length; i += batchSize) {
+        const tokenBatch = tokensToDelete.slice(i, i + batchSize);
+        try {
+            const querySnapshot = await usersRef.where('fcmTokens', 'array-contains-any', tokenBatch).get();
+            if (!querySnapshot.empty) {
+                const batch = firestoreAdmin.batch();
+                querySnapshot.forEach(doc => {
+                    const userRef = usersRef.doc(doc.id);
+                    batch.update(userRef, { fcmTokens: FieldValue.arrayRemove(...tokenBatch) });
+                });
+                await batch.commit();
+                console.log(`Removed stale tokens from ${querySnapshot.size} users in this batch.`);
+            }
+        } catch(error) {
+            console.error("Error during stale token cleanup batch:", error);
+        }
+    }
+}
+
 
 /**
  * Retrieves notifications using the Admin SDK, optimized for user roles.
@@ -87,15 +170,12 @@ export async function getNotifications(params: { buildingName: string; role?: Us
         const notificationsRef = firestoreAdmin.collection('notifications');
         let query: FirebaseFirestore.Query = notificationsRef.where('buildingName', '==', params.buildingName);
         
-        // Optimize query by filtering on the server-side
         if (params.role && params.role !== 'admin') {
-            // Firestore's 'in' operator is perfect for "OR" conditions on the same field.
-            // A user should see notifications for 'all' OR for their specific 'role'.
             query = query.where('targetType', 'in', ['all', params.role]);
         }
-
-        // Sorting is removed from the server to avoid complex composite index requirements.
-        // It will be handled on the client-side.
+        
+        // Sorting will be done on the client side to avoid needing a composite index.
+        // query = query.orderBy('date', 'desc');
 
         if (params.take) {
             query = query.limit(params.take);
@@ -104,11 +184,12 @@ export async function getNotifications(params: { buildingName: string; role?: Us
         const snapshot = await query.get();
         return snapshot.docs.map(doc => {
             const data = doc.data();
-            const date = data.date.toDate(); // Convert Firestore Timestamp to JS Date
+            // Convert Firestore Timestamp to JS Date, then to ISO string
+            const date = (data.date as Timestamp)?.toDate();
             return {
                 id: doc.id,
                 ...data,
-                date: date.toISOString(), // Convert to ISO string for client-side compatibility
+                date: date ? date.toISOString() : new Date().toISOString(), // Fallback to now if date is missing
             } as Notification;
         });
 
@@ -127,6 +208,7 @@ export async function deleteNotification(notificationId: string): Promise<boolea
     try {
         const notificationRef = firestoreAdmin.collection('notifications').doc(notificationId);
         await notificationRef.delete();
+        revalidatePath('/notifications');
         return true;
     } catch (error) {
         console.error("Error deleting notification with Admin SDK: ", error);

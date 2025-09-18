@@ -6,7 +6,7 @@ export interface User {
   role: 'resident' | 'admin' | 'technician';
   apartment?: string;
   buildingName: string;
-  fcmTokens?: string[];
+  fcmTokens?: string[]; // For Firebase Cloud Messaging
 }
 
 export interface Notification {

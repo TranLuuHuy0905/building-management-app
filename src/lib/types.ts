@@ -5,7 +5,7 @@ export interface User {
   phone?: string;
   role: 'resident' | 'admin' | 'technician';
   apartment?: string;
-  buildingName?: string;
+  buildingName: string;
 }
 
 export interface Notification {

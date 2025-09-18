@@ -59,5 +59,3 @@ export function BillList() {
         </div>
       );
 }
-
-    

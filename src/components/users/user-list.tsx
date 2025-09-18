@@ -172,14 +172,14 @@ export function UserList() {
               <TableHead>Họ tên</TableHead>
               <TableHead>Số điện thoại</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead className="text-right">Hành động</TableHead>
+              {currentUser?.role === 'admin' && <TableHead className="text-right">Hành động</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={currentUser?.role === 'admin' ? 6 : 5}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
                 </TableRow>
@@ -195,19 +195,21 @@ export function UserList() {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.phone || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(user)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
+                  {currentUser?.role === 'admin' && (
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(user)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">
+                <TableCell colSpan={currentUser?.role === 'admin' ? 6 : 5} className="text-center h-24">
                   Chưa có tài khoản thành viên nào.
                 </TableCell>
               </TableRow>
@@ -260,5 +262,3 @@ export function UserList() {
     </div>
   );
 }
-
-    

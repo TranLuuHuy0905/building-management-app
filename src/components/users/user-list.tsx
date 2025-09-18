@@ -133,9 +133,6 @@ export function UserList() {
     
     if (reauthAction === 'create' && pendingUserData) {
       success = await createResident(pendingUserData, password);
-      if (success) {
-        toast({ title: "Thành công", description: "Đã tạo tài khoản cư dân mới." });
-      }
     } else if (reauthAction === 'delete' && selectedUser) {
       success = await deleteResident(selectedUser, password);
       if(success) {
@@ -213,59 +210,6 @@ export function UserList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* --- USER TABLE --- */}
-      <Card>
-        <CardContent className="p-0">
-            {loading ? (
-                <div className="flex items-center justify-center h-64">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tên</TableHead>
-                      <TableHead>Căn hộ</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Số điện thoại</TableHead>
-                      <TableHead className="text-right">Hành động</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.length > 0 ? (
-                      users.map(user => (
-                        <TableRow key={user.uid}>
-                          <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell>{user.apartment || 'N/A'}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.phone || 'N/A'}</TableCell>
-                          <TableCell className="text-right">
-                             <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(user)}>
-                                <Pencil className="h-4 w-4" />
-                                <span className="sr-only">Sửa</span>
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)} className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Xóa</span>
-                              </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          Chưa có tài khoản cư dân nào.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

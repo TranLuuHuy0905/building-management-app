@@ -176,7 +176,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       const adminEmail = currentUser.email;
-      const buildingName = currentUser.buildingName;
       
       let successCount = 0;
       let failedCount = 0;
@@ -185,8 +184,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       for (let i = 0; i < users.length; i++) {
           const user = users[i];
           try {
-              // This creates the user but also signs them in, signing the admin out.
-              // We need a temporary auth instance to avoid this behavior
               const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
               const newResidentUser = userCredential.user;
 
@@ -205,13 +202,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               failedCount++;
               failedUsers.push(`${user.email} (Lỗi: ${error.code})`);
           } finally {
-             // We MUST sign the admin back in to continue, as createUserWithEmailAndPassword signs the new user in.
-             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
              onProgress(i + 1);
           }
       }
       
-      // After loop finishes, explicitly fetch admin user data again to ensure context is correct
+      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       if (auth.currentUser) {
         await handleUserAuth(auth.currentUser);
       }

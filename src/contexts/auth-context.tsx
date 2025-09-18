@@ -32,19 +32,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
    const handleUserAuth = useCallback(async (firebaseUser: FirebaseUser | null) => {
-    if (firebaseUser) {
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-      if (userDoc.exists()) {
-        const userData = { uid: firebaseUser.uid, ...userDoc.data() } as User;
-        setCurrentUser(userData);
+    try {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = { uid: firebaseUser.uid, ...userDoc.data() } as User;
+          setCurrentUser(userData);
+        } else {
+          // This case might happen if user is deleted from Firestore but not Auth
+          setCurrentUser(null);
+        }
       } else {
-        // This case might happen if user is deleted from Firestore but not Auth
         setCurrentUser(null);
       }
-    } else {
+    } catch (error) {
+      console.error("Auth state change error:", error);
       setCurrentUser(null);
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -79,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: error.code === 'auth/email-already-in-use' ? 'Email này đã được sử dụng.' : (error.message || "Đã có lỗi xảy ra."),
       });
     } finally {
-      setLoading(false);
+      // setLoading(false) is handled by onAuthStateChanged
     }
   }, [router, toast]);
 
@@ -128,10 +134,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
-        if (auth.currentUser) {
-            await handleUserAuth(auth.currentUser);
-        }
-
+        // Let onAuthStateChanged handle the user state update
+        
         toast({
             title: "Tạo tài khoản thành công!",
             description: `Đã tạo tài khoản cho ${name}.`,
@@ -147,16 +151,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         try {
             await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-             if (auth.currentUser) {
-              await handleUserAuth(auth.currentUser);
-            }
+             // Let onAuthStateChanged handle the user state update
         } catch (reauthError) {
              console.error("CRITICAL: Failed to sign admin back in after user creation failure:", reauthError);
+             await signOut(auth); // Sign out completely to force re-login
              router.push('/login');
         }
         return false;
     }
-}, [currentUser, toast, router, handleUserAuth]);
+}, [currentUser, toast, router]);
 
 
   const createResidentsInBulk = useCallback(async (users: BulkUserCreationData[], adminPassword: string, onProgress: (count: number) => void) => {
@@ -198,16 +201,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      if (auth.currentUser) {
-        await handleUserAuth(auth.currentUser);
-      }
+      // Let onAuthStateChanged handle the user state update
 
       if(failedCount > 0) {
         console.error("Failed to create the following users:", failedUsers);
       }
 
       return { success: successCount, failed: failedCount };
-  }, [currentUser, toast, handleUserAuth]);
+  }, [currentUser, toast]);
 
     const deleteResident = useCallback(async (userToDelete: User, adminPassword: string): Promise<boolean> => {
     if (!currentUser || currentUser.role !== 'admin' || !currentUser.email) {
@@ -227,9 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Step 3: Sign the admin back in
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      if (auth.currentUser) {
-        await handleUserAuth(auth.currentUser);
-      }
+       // Let onAuthStateChanged handle the user state update
 
       return true;
     } catch (error: any) {
@@ -241,12 +240,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       } catch (reauthError) {
         console.error("CRITICAL: Failed to sign admin back in after deletion failure:", reauthError);
+        await signOut(auth);
         router.push('/login');
       }
 
       return false;
     }
-  }, [currentUser, router, toast, handleUserAuth]);
+  }, [currentUser, router, toast]);
 
 
   const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
@@ -270,6 +270,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle the rest, including setting loading to false
       toast({
         title: "Đăng nhập thành công!",
         description: "Chào mừng bạn đã trở lại.",
@@ -281,8 +282,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Lỗi đăng nhập",
         description: "Email hoặc mật khẩu không đúng.",
       });
-    } finally {
-      setLoading(false);
+      setLoading(false); // Set loading to false on error
     }
   }, [toast]);
 
@@ -291,6 +291,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signOut(auth);
       router.push('/login');
+      setCurrentUser(null); // Explicitly clear user
     } catch (error) {
       console.error("Error signing out:", error);
        toast({
@@ -366,5 +367,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-    

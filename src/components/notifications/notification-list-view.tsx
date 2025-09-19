@@ -1,43 +1,28 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Loader2 } from 'lucide-react';
 import { NotificationItem } from './notification-item';
-import type { Notification } from '@/lib/types';
-import { getNotifications, deleteNotification } from '@/lib/services/notification-service';
+import type { Notification, User } from '@/lib/types';
+import { deleteNotification } from '@/lib/services/notification-service';
 import { CreateNotificationDialog } from './create-notification-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { useRouter } from 'next/navigation';
 
-export function NotificationList() {
-  const { currentUser } = useAuth();
+interface NotificationListViewProps {
+    initialNotifications: Notification[];
+    user: User;
+}
+
+export function NotificationListView({ initialNotifications, user }: NotificationListViewProps) {
   const { toast } = useToast();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!currentUser?.buildingName || !currentUser?.role) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const fetchedNotifications = await getNotifications({ 
-        buildingName: currentUser.buildingName,
-        role: currentUser.role 
-    });
-    
-    // No need to sort, already sorted by query
-    setNotifications(fetchedNotifications);
-    setLoading(false);
-  }, [currentUser?.buildingName, currentUser?.role]);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
 
   const handleOpenDeleteDialog = (id: string) => {
     setNotificationToDelete(id);
@@ -58,13 +43,18 @@ export function NotificationList() {
     setIsDeleteDialogOpen(false);
     setNotificationToDelete(null);
   }
+
+  const onNotificationCreated = () => {
+      // Re-fetches data from the server and re-renders the page
+      router.refresh();
+  }
   
   return (
     <>
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800 font-headline">Thông báo</h2>
-          {currentUser?.role === 'admin' && (
+          {user?.role === 'admin' && (
             <Button size="icon" onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-5 h-5" />
               <span className="sr-only">Tạo thông báo</span>
@@ -73,16 +63,13 @@ export function NotificationList() {
         </div>
         
         <div className="space-y-4">
-          {loading ? (
-              <div className="flex items-center justify-center pt-10">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-          ) : notifications.length > 0 ? (
+          {notifications.length > 0 ? (
               notifications.map(notification => (
                   <NotificationItem 
                     key={notification.id} 
                     notification={notification} 
-                    onDelete={currentUser?.role === 'admin' ? handleOpenDeleteDialog : undefined}
+                    userRole={user.role}
+                    onDelete={user?.role === 'admin' ? handleOpenDeleteDialog : undefined}
                   />
               ))
           ) : (
@@ -94,7 +81,7 @@ export function NotificationList() {
       <CreateNotificationDialog 
         isOpen={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        onNotificationCreated={fetchNotifications}
+        onNotificationCreated={onNotificationCreated}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

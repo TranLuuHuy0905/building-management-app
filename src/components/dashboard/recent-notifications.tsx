@@ -1,39 +1,24 @@
-
-'use client';
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Notification } from '@/lib/types';
 import { getNotifications } from '@/lib/services/notification-service';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Bell, Loader2 } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { NotificationItem } from '../notifications/notification-item';
+import { getCurrentUser } from '@/lib/services/get-current-user';
 
+export async function RecentNotifications() {
+  const currentUser = await getCurrentUser();
+  
+  if (!currentUser?.buildingName || !currentUser.role) {
+    return null; // Or a skeleton/loading state
+  }
 
-export function RecentNotifications() {
-  const { currentUser } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentUser?.buildingName) return;
-
-    const fetchNotifications = async () => {
-        setLoading(true);
-        const fetchedNotifications = await getNotifications({ 
-            buildingName: currentUser.buildingName,
-            role: currentUser.role,
-            take: 3
-        });
-        
-        // No need to sort, already sorted by query
-        setNotifications(fetchedNotifications);
-        setLoading(false);
-    };
-    fetchNotifications();
-  }, [currentUser]);
-
+  const notifications = await getNotifications({ 
+      buildingName: currentUser.buildingName,
+      role: currentUser.role,
+      take: 3
+  });
 
   return (
     <Card className="shadow-sm">
@@ -49,11 +34,7 @@ export function RecentNotifications() {
         </Button>
       </CardHeader>
       <CardContent>
-        {loading ? (
-            <div className="flex items-center justify-center h-24">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
-        ) : notifications.length > 0 ? (
+        {notifications.length > 0 ? (
             <div className="space-y-4">
             {notifications.map((notification) => (
                 <NotificationItem key={notification.id} notification={notification} />

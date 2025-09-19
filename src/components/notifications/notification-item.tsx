@@ -1,12 +1,10 @@
 'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Notification } from '@/lib/types';
+import type { Notification, User } from '@/lib/types';
 import { AlertCircle, Bell, Clock, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
-import { useAuth } from '@/contexts/auth-context';
 
 const getTypeIcon = (type: Notification['type']) => {
   switch (type) {
@@ -28,12 +26,12 @@ const getTypeBadge = (type: Notification['type']) => {
 
 interface NotificationItemProps {
   notification: Notification;
+  userRole?: User['role'];
   onDelete?: (id: string) => void;
 }
 
 
-export function NotificationItem({ notification, onDelete }: NotificationItemProps) {
-  const { currentUser } = useAuth();
+export function NotificationItem({ notification, userRole, onDelete }: NotificationItemProps) {
   const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,12 +45,11 @@ export function NotificationItem({ notification, onDelete }: NotificationItemPro
       });
       setDate(formattedDate);
     } catch(e) {
-      // Fallback for invalid date format from old data
       setDate(notification.date);
     }
   }, [notification.date]);
 
-  const canDelete = currentUser?.role === 'admin' && onDelete;
+  const canDelete = userRole === 'admin' && onDelete;
 
   return (
     <Card className="shadow-sm relative">

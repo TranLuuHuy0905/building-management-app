@@ -3,7 +3,6 @@
 import { db } from '@/lib/firebaseClient';
 import { collection, getDocs, query, where, DocumentData, addDoc } from 'firebase/firestore';
 import type { Request } from '@/lib/types';
-import { sendRequestNotification } from './notification-service';
 import { revalidatePath } from 'next/cache';
 
 function docToRequest(doc: DocumentData): Request {
@@ -52,12 +51,14 @@ export async function createRequest(requestData: Omit<Request, 'id'>): Promise<s
         const requestsRef = collection(db, 'requests');
         const docRef = await addDoc(requestsRef, requestData);
 
-        // After creating the request, create a notification for admins and technicians
-        await sendRequestNotification(requestData);
-
-        // Revalidate paths for the current user to see their new request
+        // Revalidate paths for the relevant users to see the new request
         revalidatePath('/resident/requests');
         revalidatePath('/resident/home');
+        revalidatePath('/admin/requests');
+        revalidatePath('/admin/home');
+        revalidatePath('/technician/requests');
+        revalidatePath('/technician/home');
+
 
         return docRef.id;
     } catch (error) {

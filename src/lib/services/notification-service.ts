@@ -4,6 +4,7 @@ import { firestoreAdmin } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
+import { getCurrentUser } from './get-current-user';
 
 /**
  * Creates a notification and saves it to Firestore.
@@ -94,4 +95,29 @@ export async function deleteNotification(notificationId: string): Promise<boolea
         console.error("Error deleting notification with Admin SDK: ", error);
         return false;
     }
+}
+
+
+/**
+ * Saves a user's Firebase Cloud Messaging (FCM) token to their user document in Firestore.
+ * @param token The FCM token to save.
+ */
+export async function saveUserFcmToken(token: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn('Cannot save FCM token: user not authenticated.');
+    return;
+  }
+
+  try {
+    const userRef = firestoreAdmin.collection('users').doc(user.uid);
+    await userRef.update({
+      fcmTokens: FieldValue.arrayUnion(token),
+    });
+    console.log('Successfully saved FCM token for user:', user.uid);
+    // Revalidate the root layout to ensure the user object with the new token is fresh
+    revalidatePath('/', 'layout');
+  } catch (error) {
+    console.error('Error saving FCM token:', error);
+  }
 }

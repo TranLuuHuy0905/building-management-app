@@ -119,14 +119,15 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         }
         
         console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
+        
+        // Revalidate paths to update UI
         revalidatePath('/notifications');
-        if(notificationData.targetType === 'all') {
-            revalidatePath('/admin/home');
-            revalidatePath('/resident/home');
-            revalidatePath('/technician/home');
+        if (notificationData.targetType === 'all') {
+            ['admin', 'resident', 'technician'].forEach(role => revalidatePath(`/${role}/home`));
         } else {
-             revalidatePath(`/${notificationData.targetType}/home`);
+            revalidatePath(`/${notificationData.targetType}/home`);
         }
+
         return { success: response.successCount, failed: response.failureCount, newNotificationId };
 
     } catch (error) {
@@ -151,25 +152,22 @@ export async function sendRequestNotification(request: Omit<Request, 'id'>): Pro
     try {
         const serverTimestamp = FieldValue.serverTimestamp();
 
-        // Create a notification record for admins
-        await firestoreAdmin.collection('notifications').add({
-            ...notificationData,
-            targetType: 'admin',
-            date: serverTimestamp,
-        });
-
-        // Create a separate notification record for technicians
-         await firestoreAdmin.collection('notifications').add({
-            ...notificationData,
-            targetType: 'technician',
-            date: serverTimestamp,
-        });
+        // Create a notification record for admins and technicians
+        const rolesToNotify: Array<User['role']> = ['admin', 'technician'];
+        
+        for (const role of rolesToNotify) {
+            await firestoreAdmin.collection('notifications').add({
+                ...notificationData,
+                targetType: role,
+                date: serverTimestamp,
+            });
+        }
 
         // Now, find all admins and technicians to send a push notification
         const usersRef = firestoreAdmin.collection('users');
         const usersQuery = usersRef
             .where('buildingName', '==', request.buildingName)
-            .where('role', 'in', ['admin', 'technician']);
+            .where('role', 'in', rolesToNotify);
 
         const usersSnapshot = await usersQuery.get();
         if (usersSnapshot.empty) {
@@ -204,9 +202,11 @@ export async function sendRequestNotification(request: Omit<Request, 'id'>): Pro
                 await cleanupStaleTokens(tokensToDelete);
             }
         }
+
+        // Revalidate relevant paths
         revalidatePath('/notifications');
-        revalidatePath('/admin/home');
-        revalidatePath('/technician/home');
+        rolesToNotify.forEach(role => revalidatePath(`/${role}/home`));
+        revalidatePath(`/${currentUser.role}/requests`);
 
     } catch (error) {
         console.error("Error sending request notification: ", error);
@@ -299,4 +299,33 @@ export async function deleteNotification(notificationId: string): Promise<boolea
         console.error("Error deleting notification with Admin SDK: ", error);
         return false;
     }
+}
+
+async function getCurrentUserRole() {
+  const session = cookies().get('__session')?.value || '';
+  if (!session) return null;
+  try {
+    const decodedToken = await getAuth().verifySessionCookie(session, true);
+    const userDoc = await firestoreAdmin.collection('users').doc(decodedToken.uid).get();
+    if (userDoc.exists) {
+        return (userDoc.data() as User).role;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function getCurrentUser() {
+  const session = cookies().get('__session')?.value || '';
+  if (!session) return null;
+  try {
+    const decodedToken = await getAuth().verifySessionCookie(session, true);
+    const userDoc = await firestoreAdmin.collection('users').doc(decodedToken.uid).get();
+    if (userDoc.exists) {
+        return userDoc.data() as User;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

@@ -4,6 +4,7 @@ import { db } from '@/lib/firebaseClient';
 import { collection, getDocs, query, where, DocumentData, addDoc } from 'firebase/firestore';
 import type { Request } from '@/lib/types';
 import { sendRequestNotification } from './notification-service';
+import { revalidatePath } from 'next/cache';
 
 function docToRequest(doc: DocumentData): Request {
     const data = doc.data();
@@ -53,6 +54,10 @@ export async function createRequest(requestData: Omit<Request, 'id'>): Promise<s
 
         // After creating the request, send a notification to admins and technicians
         await sendRequestNotification(requestData);
+
+        // Revalidate paths for the current user to see their new request
+        revalidatePath('/resident/requests');
+        revalidatePath('/resident/home');
 
         return docRef.id;
     } catch (error) {

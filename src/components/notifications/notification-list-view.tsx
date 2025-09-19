@@ -19,7 +19,6 @@ export function NotificationListView({ initialNotifications, user }: Notificatio
   const { toast } = useToast();
   const router = useRouter();
 
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);

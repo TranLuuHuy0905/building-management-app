@@ -64,14 +64,14 @@ export function CreateNotificationDialog({ isOpen, onOpenChange, onNotificationC
 
     if (result.newNotificationId) {
         toast({ 
-          title: 'Tạo thành công!', 
-          description: `Thông báo đã được tạo và sẽ hiển thị cho người dùng.` 
+          title: 'Gửi thành công!', 
+          description: `Thông báo đã được tạo và gửi đến người dùng.` 
         });
         onNotificationCreated();
         onOpenChange(false);
         resetForm();
     } else {
-        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể tạo thông báo. Vui lòng thử lại.' });
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể gửi thông báo. Vui lòng thử lại.' });
     }
   };
 
@@ -127,7 +127,7 @@ export function CreateNotificationDialog({ isOpen, onOpenChange, onNotificationC
                 <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Hủy</Button>
                 <Button type="submit" disabled={isSubmitting || !title || !content}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Tạo thông báo
+                    Gửi thông báo
                 </Button>
             </DialogFooter>
         </form>

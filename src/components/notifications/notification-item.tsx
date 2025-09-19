@@ -45,6 +45,7 @@ export function NotificationItem({ notification, userRole, onDelete }: Notificat
       });
       setDate(formattedDate);
     } catch(e) {
+      // Fallback for invalid date format
       setDate(notification.date);
     }
   }, [notification.date]);

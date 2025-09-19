@@ -35,7 +35,8 @@ export function NotificationListView({ initialNotifications, user }: Notificatio
     const success = await deleteNotification(notificationToDelete);
     if(success) {
       toast({ title: "Thành công", description: "Đã xóa thông báo." });
-      setNotifications(prev => prev.filter(n => n.id !== notificationToDelete));
+      // Instead of client-side filtering, we refresh from server for consistency
+      router.refresh();
     } else {
       toast({ variant: "destructive", title: "Lỗi", description: "Không thể xóa thông báo." });
     }
@@ -63,8 +64,8 @@ export function NotificationListView({ initialNotifications, user }: Notificatio
         </div>
         
         <div className="space-y-4">
-          {notifications.length > 0 ? (
-              notifications.map(notification => (
+          {initialNotifications.length > 0 ? (
+              initialNotifications.map(notification => (
                   <NotificationItem 
                     key={notification.id} 
                     notification={notification} 

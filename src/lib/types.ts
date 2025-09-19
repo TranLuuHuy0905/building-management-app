@@ -10,7 +10,7 @@ export interface User {
 }
 
 export interface Notification {
-  id: string; // Changed to string for Firestore ID
+  id: string;
   type: 'warning' | 'event' | 'reminder';
   title: string;
   content: string;

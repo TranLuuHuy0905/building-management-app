@@ -1,14 +1,13 @@
 'use server';
 
-import { firestoreAdmin } from '@/lib/firebaseAdmin';
+import { firestoreAdmin, messagingAdmin } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from './get-current-user';
 
 /**
- * Creates a notification and saves it to Firestore.
- * This function NO LONGER sends push notifications.
+ * Creates a notification, saves it to Firestore, and sends push notifications.
  * @param notificationData The notification data, excluding the ID.
  * @returns An object with the ID of the newly created notification.
  */
@@ -19,22 +18,48 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
             date: FieldValue.serverTimestamp(),
         });
         const newNotificationId = notificationRef.id;
+        
+        // --- Get FCM Tokens ---
+        const usersRef = firestoreAdmin.collection('users');
+        let usersQuery = usersRef.where('buildingName', '==', notificationData.buildingName);
+        
+        if (notificationData.targetType !== 'all') {
+            usersQuery = usersQuery.where('role', '==', notificationData.targetType);
+        }
 
+        const usersSnapshot = await usersQuery.get();
+        const tokens = usersSnapshot.docs
+            .map(doc => doc.data().fcmTokens)
+            .flat()
+            .filter(token => typeof token === 'string' && token);
+
+        // --- Send Push Notifications ---
+        if (tokens.length > 0) {
+            const message = {
+                notification: {
+                    title: notificationData.title,
+                    body: notificationData.content,
+                },
+                tokens: tokens,
+            };
+            
+            const response = await messagingAdmin.sendEachForMulticast(message);
+            console.log(`Successfully sent ${response.successCount} push notifications.`);
+            if (response.failureCount > 0) {
+                console.warn(`Failed to send ${response.failureCount} push notifications.`);
+            }
+        }
+        
         // Revalidate paths to update UI for relevant users
         revalidatePath('/notifications');
-        if (notificationData.targetType === 'all') {
-            revalidatePath('/admin/home');
-            revalidatePath('/resident/home');
-            revalidatePath('/technician/home');
-        } else {
-            revalidatePath(`/${notificationData.targetType}/home`);
-            revalidatePath('/admin/home');
-        }
+        revalidatePath('/admin/home');
+        revalidatePath('/resident/home');
+        revalidatePath('/technician/home');
 
         return { newNotificationId };
 
     } catch (error) {
-        console.error("Error creating notification: ", error);
+        console.error("Error creating and sending notification: ", error);
         return { newNotificationId: null };
     }
 }
@@ -97,7 +122,6 @@ export async function deleteNotification(notificationId: string): Promise<boolea
     }
 }
 
-
 /**
  * Saves a user's Firebase Cloud Messaging (FCM) token to their user document in Firestore.
  * @param token The FCM token to save.
@@ -115,7 +139,6 @@ export async function saveUserFcmToken(token: string): Promise<void> {
       fcmTokens: FieldValue.arrayUnion(token),
     });
     console.log('Successfully saved FCM token for user:', user.uid);
-    // Revalidate the root layout to ensure the user object with the new token is fresh
     revalidatePath('/', 'layout');
   } catch (error) {
     console.error('Error saving FCM token:', error);

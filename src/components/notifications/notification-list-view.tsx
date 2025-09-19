@@ -54,7 +54,7 @@ export function NotificationListView({ initialNotifications, user }: Notificatio
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800 font-headline">Thông báo</h2>
-          {user?.role === 'admin' && (
+          {user && user.role === 'admin' && (
             <Button size="icon" onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-5 h-5" />
               <span className="sr-only">Tạo thông báo</span>

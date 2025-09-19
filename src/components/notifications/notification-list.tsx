@@ -30,8 +30,8 @@ export function NotificationList() {
         role: currentUser.role 
     });
     
-    const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setNotifications(sortedNotifications);
+    // No need to sort, already sorted by query
+    setNotifications(fetchedNotifications);
     setLoading(false);
   }, [currentUser?.buildingName, currentUser?.role]);
 

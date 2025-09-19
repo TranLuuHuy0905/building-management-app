@@ -1,6 +1,6 @@
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebaseClient';
 import { collection, getDocs, query, where, DocumentData, addDoc } from 'firebase/firestore';
 import type { Request } from '@/lib/types';
 import { sendRequestNotification } from './notification-service';

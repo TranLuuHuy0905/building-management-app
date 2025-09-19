@@ -27,8 +27,8 @@ export function RecentNotifications() {
             take: 3
         });
         
-        const sorted = fetchedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setNotifications(sorted);
+        // No need to sort, already sorted by query
+        setNotifications(fetchedNotifications);
         setLoading(false);
     };
     fetchNotifications();

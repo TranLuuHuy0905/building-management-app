@@ -120,7 +120,13 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         
         console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
         revalidatePath('/notifications');
-        revalidatePath(`/${notificationData.targetType}/home`);
+        if(notificationData.targetType === 'all') {
+            revalidatePath('/admin/home');
+            revalidatePath('/resident/home');
+            revalidatePath('/technician/home');
+        } else {
+             revalidatePath(`/${notificationData.targetType}/home`);
+        }
         return { success: response.successCount, failed: response.failureCount, newNotificationId };
 
     } catch (error) {
@@ -249,12 +255,13 @@ export async function getNotifications(params: { buildingName: string; role?: Us
         const notificationsRef = firestoreAdmin.collection('notifications');
         let query: FirebaseFirestore.Query = notificationsRef.where('buildingName', '==', params.buildingName);
         
+        // Admins see all notifications regardless of targetType.
+        // Other roles see 'all' and their specific role notifications.
         if (params.role && params.role !== 'admin') {
             query = query.where('targetType', 'in', ['all', params.role]);
         }
         
-        // Sorting will be done on the client side to avoid needing a composite index.
-        // query = query.orderBy('date', 'desc');
+        query = query.orderBy('date', 'desc');
 
         if (params.take) {
             query = query.limit(params.take);
@@ -263,12 +270,11 @@ export async function getNotifications(params: { buildingName: string; role?: Us
         const snapshot = await query.get();
         return snapshot.docs.map(doc => {
             const data = doc.data();
-            // Convert Firestore Timestamp to JS Date, then to ISO string
             const date = (data.date as Timestamp)?.toDate();
             return {
                 id: doc.id,
                 ...data,
-                date: date ? date.toISOString() : new Date().toISOString(), // Fallback to now if date is missing
+                date: date ? date.toISOString() : new Date().toISOString(),
             } as Notification;
         });
 

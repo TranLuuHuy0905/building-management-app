@@ -120,8 +120,7 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         
         console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
         revalidatePath('/notifications');
-        revalidatePath('/admin/home');
-        revalidatePath('/technician/home');
+        revalidatePath(`/${notificationData.targetType}/home`);
         return { success: response.successCount, failed: response.failureCount, newNotificationId };
 
     } catch (error) {

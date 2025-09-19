@@ -40,12 +40,12 @@ export async function saveUserFcmToken(token: string): Promise<void> {
 
 
 /**
- * Creates a notification, saves it to Firestore, and sends push notifications via FCM.
- * Includes cleanup of stale/invalid tokens.
+ * Creates a notification and saves it to Firestore.
+ * This function NO LONGER sends push notifications.
  * @param notificationData The notification data, excluding the ID.
- * @returns An object with the count of successful and failed deliveries.
+ * @returns An object with the ID of the newly created notification.
  */
-export async function createAndSendNotification(notificationData: Omit<Notification, 'id' | 'date'>): Promise<{ success: number; failed: number; newNotificationId: string | null }> {
+export async function createAndSendNotification(notificationData: Omit<Notification, 'id' | 'date'>): Promise<{ newNotificationId: string | null }> {
     try {
         // Step 1: Save the notification to Firestore.
         const notificationRef = await firestoreAdmin.collection('notifications').add({
@@ -54,85 +54,25 @@ export async function createAndSendNotification(notificationData: Omit<Notificat
         });
         const newNotificationId = notificationRef.id;
 
-        // Step 2: Get all FCM tokens for the target users.
-        const usersRef = firestoreAdmin.collection('users');
-        let usersQuery: FirebaseFirestore.Query = usersRef.where('buildingName', '==', notificationData.buildingName);
-        
-        if (notificationData.targetType !== 'all') {
-            usersQuery = usersQuery.where('role', '==', notificationData.targetType);
-        }
-
-        const usersSnapshot = await usersQuery.get();
-        if (usersSnapshot.empty) {
-            console.log("No users found for the target criteria. Notification saved but not sent.");
-            return { success: 0, failed: 0, newNotificationId };
-        }
-
-        let tokens: string[] = [];
-        usersSnapshot.forEach(doc => {
-            const user = doc.data() as User;
-            if (user.fcmTokens && Array.isArray(user.fcmTokens)) {
-                tokens.push(...user.fcmTokens);
-            }
-        });
-
-        // Deduplicate tokens
-        tokens = [...new Set(tokens)];
-
-        if (tokens.length === 0) {
-            console.log("No FCM tokens found for target users. Notification saved but not sent.");
-            return { success: 0, failed: 0, newNotificationId };
-        }
-
-        // Step 3: Send multicast FCM message.
-        const message = {
-            notification: {
-                title: notificationData.title,
-                body: notificationData.content,
-            },
-            tokens: tokens,
-        };
-
-        const response = await messagingAdmin.sendEachForMulticast(message);
-        
-        // Step 4: Handle stale tokens and log errors.
-        if (response.failureCount > 0) {
-            const tokensToDelete: string[] = [];
-            response.responses.forEach((resp, idx) => {
-                if (!resp.success) {
-                    const errorCode = resp.error?.code;
-                    // Check for errors indicating an invalid or unregistered token
-                    if (errorCode === 'messaging/invalid-registration-token' ||
-                        errorCode === 'messaging/registration-token-not-registered') {
-                        const failedToken = tokens[idx];
-                        console.log(`Stale/invalid token found: ${failedToken}. Marking for deletion.`);
-                        tokensToDelete.push(failedToken);
-                    } else {
-                         console.error(`FCM send failed for token: ${tokens[idx]}`, resp.error);
-                    }
-                }
-            });
-            // Clean up stale tokens from Firestore
-            if (tokensToDelete.length > 0) {
-                await cleanupStaleTokens(tokensToDelete);
-            }
-        }
-        
-        console.log(`FCM send result: ${response.successCount} success, ${response.failureCount} failed.`);
-        
-        // Revalidate paths to update UI
+        // Step 2: Revalidate paths to update UI for relevant users
         revalidatePath('/notifications');
         if (notificationData.targetType === 'all') {
             ['admin', 'resident', 'technician'].forEach(role => revalidatePath(`/${role}/home`));
         } else {
             revalidatePath(`/${notificationData.targetType}/home`);
+            revalidatePath('/admin/home'); // Also revalidate admin home
         }
 
-        return { success: response.successCount, failed: response.failureCount, newNotificationId };
+        console.log(`Notification ${newNotificationId} created successfully.`);
+
+        // For simplicity and to match user request, we are not sending FCM messages here.
+        // We are only creating the notification record in the database.
+        // The return object is simplified.
+        return { newNotificationId };
 
     } catch (error) {
-        console.error("Error creating and sending notification: ", error);
-        return { success: 0, failed: 0, newNotificationId: null };
+        console.error("Error creating notification: ", error);
+        return { newNotificationId: null };
     }
 }
 
@@ -163,50 +103,16 @@ export async function sendRequestNotification(request: Omit<Request, 'id'>): Pro
             });
         }
 
-        // Now, find all admins and technicians to send a push notification
         const usersRef = firestoreAdmin.collection('users');
-        const usersQuery = usersRef
-            .where('buildingName', '==', request.buildingName)
-            .where('role', 'in', rolesToNotify);
-
-        const usersSnapshot = await usersQuery.get();
-        if (usersSnapshot.empty) {
-            console.log("No admins or technicians found to notify.");
-            return;
-        }
-
-        let tokens: string[] = [];
-        usersSnapshot.forEach(doc => {
-            const user = doc.data() as User;
-            if (user.fcmTokens && Array.isArray(user.fcmTokens)) {
-                tokens.push(...user.fcmTokens);
-            }
-        });
-
-        tokens = [...new Set(tokens)];
-
-        if (tokens.length > 0) {
-            const message = {
-                notification: {
-                    title: notificationData.title,
-                    body: notificationData.content,
-                },
-                tokens: tokens,
-            };
-            const response = await messagingAdmin.sendEachForMulticast(message);
-            console.log(`Request notification sent: ${response.successCount} success, ${response.failureCount} failed.`);
-             if (response.failureCount > 0) {
-                const tokensToDelete = response.responses
-                    .map((resp, idx) => !resp.success ? tokens[idx] : null)
-                    .filter((token): token is string => token !== null);
-                await cleanupStaleTokens(tokensToDelete);
-            }
-        }
+        const currentUser = await getCurrentUser();
 
         // Revalidate relevant paths
         revalidatePath('/notifications');
         rolesToNotify.forEach(role => revalidatePath(`/${role}/home`));
-        revalidatePath(`/${currentUser.role}/requests`);
+        if (currentUser) {
+            revalidatePath(`/${currentUser.role}/requests`);
+        }
+
 
     } catch (error) {
         console.error("Error sending request notification: ", error);

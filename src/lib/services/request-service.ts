@@ -52,7 +52,7 @@ export async function createRequest(requestData: Omit<Request, 'id'>): Promise<s
         const requestsRef = collection(db, 'requests');
         const docRef = await addDoc(requestsRef, requestData);
 
-        // After creating the request, send a notification to admins and technicians
+        // After creating the request, create a notification for admins and technicians
         await sendRequestNotification(requestData);
 
         // Revalidate paths for the current user to see their new request
